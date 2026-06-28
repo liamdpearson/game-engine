@@ -22,6 +22,7 @@ int main()
     buildShaderProgram(vs, fs, shaderProgram, modelLoc, viewLoc, projectionLoc);
 
 
+
     // --- init objects --- //
     std::vector<Object> objects;
     objects.push_back(makeObject("models/gun/gun.obj", "models/gun/gun.png",
@@ -33,6 +34,7 @@ int main()
         uploadObject(obj);
 
 
+        
     // --- render loop --- //
     while (!glfwWindowShouldClose(window))
     {
