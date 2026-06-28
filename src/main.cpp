@@ -114,12 +114,13 @@ static void mouseCallback(GLFWwindow*, double xpos, double ypos)
 static bool loadOBJ(const char* path,
                     std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices,
-                    const float xoff, const float yoff, const float zoff)
+                    const float xoff, const float yoff, const float zoff,
+                    const float yaw, const float pitch)
 {
     std::ifstream file(path);
     if (!file) { std::fprintf(stderr, "Cannot open %s\n", path); return false; }
 
-    unsigned int num_verts = outVerts.size();
+    unsigned int num_verts = outVerts.size() / 3;
 
     std::string line;
     while(std::getline(file, line))
@@ -131,9 +132,17 @@ static bool loadOBJ(const char* path,
         if (tag == "v") {
             float x, y, z;
             ss >> x >> y >> z;
-            outVerts.push_back(x + xoff);
-            outVerts.push_back(y + yoff);
-            outVerts.push_back(z + zoff);
+
+            // rotate the raw vertex by the object's yaw (about Y) then pitch (about X),
+            // then write the rotated values back into x/y/z for the offset step below.
+            glm::mat4 rot(1.0f);
+            rot = glm::rotate(rot, glm::radians(pitch), glm::vec3(-1.0f, 0.0f, 0.0f));
+            rot = glm::rotate(rot, glm::radians(yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
+            glm::vec3 r = glm::vec3(rot * glm::vec4(x, y, z, 1.0f));
+
+            outVerts.push_back(r.x + xoff);
+            outVerts.push_back(r.y + yoff);
+            outVerts.push_back(r.z + zoff);
         }
         else if (tag == "f") {
             std::string vert;
@@ -207,7 +216,8 @@ int main()
     // runs from -1 to +1 on both x and y, regardless of window size. z is depth.
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
-    loadOBJ("models/gun.obj", vertices, indices, 0.0f, 0.0f, 0.0f);
+    loadOBJ("models/gun.obj", vertices, indices, 0.0f, 0.0f, 0.0f, 90.0f, 45.0f);
+    loadOBJ("models/gun.obj", vertices, indices, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f);
 
     // VAO: records the "how to read the buffer" config so we can re-bind it later
     // with one call. In the Core profile you MUST have a VAO bound to draw.
