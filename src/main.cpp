@@ -1,17 +1,19 @@
-// obj-creatir - Milestone 2: draw a triangle.
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
 #include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
-#include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
+#include <glm/gtc/type_ptr.hpp>       // value_ptr (hand a matrix to OpenGL)
 
 #include <cstdio>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <map>
 
 
 static const int SW = 1280;
@@ -23,14 +25,18 @@ static const int SH = 720;
 static const char* vertexShaderSrc = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec2 aTexCoord;
 
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
 
+out vec2 TexCoord;
+
 void main()
 {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
+    TexCoord = aTexCoord;
 }
 )glsl";
 
@@ -40,9 +46,13 @@ void main()
 static const char* fragmentShaderSrc = R"glsl(
 #version 330 core
 out vec4 FragColor;
+
+in vec2 TexCoord;
+uniform sampler2D tex0;
+
 void main()
 {
-    FragColor = vec4(1.0, 0.5, 0.2, 1.0); // R,G,B,A
+    FragColor = texture(tex0, TexCoord);
 }
 )glsl";
 
@@ -72,6 +82,33 @@ static unsigned int compileShader(GLenum type, const char* src)
 static void framebufferSizeCallback(GLFWwindow*, int width, int height)
 {
     glViewport(0, 0, width, height);
+}
+
+
+// Load a PNG/JPG from `path` into a new GL texture and return its id.
+static unsigned int loadTexture(const char* path)
+{
+    stbi_set_flip_vertically_on_load(true);
+    int tw, th, tch;
+    unsigned char* data = stbi_load(path, &tw, &th, &tch, 0);
+
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    if (data) {
+        GLenum fmt = (tch == 4) ? GL_RGBA : GL_RGB;
+        glTexImage2D(GL_TEXTURE_2D, 0, fmt, tw, th, 0, fmt, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::fprintf(stderr, "Failed to load texture: %s\n", path);
+    }
+    stbi_image_free(data);
+    return texture;
 }
 
 
@@ -115,12 +152,21 @@ static bool loadOBJ(const char* path,
                     std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices,
                     const float xoff, const float yoff, const float zoff,
-                    const float yaw, const float pitch)
+                    const float yaw, const float pitch, const float scale)
 {
     std::ifstream file(path);
     if (!file) { std::fprintf(stderr, "Cannot open %s\n", path); return false; }
 
-    unsigned int num_verts = outVerts.size() / 3;
+    //unsigned int num_verts = outVerts.size() / 3;
+
+    std::vector<glm::vec3> pos;
+    std::vector<glm::vec2> uv;
+
+    std::map<std::pair<int,int>, unsigned int> uniqueMap;
+
+    glm::mat4 rot(1.0f);
+    rot = glm::rotate(rot, glm::radians(pitch), glm::vec3(-1.0f, 0.0f, 0.0f));
+    rot = glm::rotate(rot, glm::radians(yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
 
     std::string line;
     while(std::getline(file, line))
@@ -132,9 +178,12 @@ static bool loadOBJ(const char* path,
         if (tag == "v") {
             float x, y, z;
             ss >> x >> y >> z;
+            glm::vec3 temp = glm::vec3(x, y, z);
+            pos.push_back(temp);
 
             // rotate the raw vertex by the object's yaw (about Y) then pitch (about X),
             // then write the rotated values back into x/y/z for the offset step below.
+            /*
             glm::mat4 rot(1.0f);
             rot = glm::rotate(rot, glm::radians(pitch), glm::vec3(-1.0f, 0.0f, 0.0f));
             rot = glm::rotate(rot, glm::radians(yaw),   glm::vec3(0.0f, 1.0f, 0.0f));
@@ -143,19 +192,55 @@ static bool loadOBJ(const char* path,
             outVerts.push_back(r.x + xoff);
             outVerts.push_back(r.y + yoff);
             outVerts.push_back(r.z + zoff);
+            */
+        }
+        else if (tag == "vt") {
+            float u, v;
+            ss >> u >> v;
+            glm::vec2 temp = glm::vec2(u, v);
+            uv.push_back(temp);
         }
         else if (tag == "f") {
             std::string vert;
             std::vector<unsigned int> face;
             while (ss >> vert) {
-                unsigned int idx = std::stoi(vert.substr(0, vert.find('/')));
-                face.push_back(idx - 1);
+                std::istringstream vs(vert);
+                std::string p, t;
+                std::getline(vs, p, '/');
+                std::getline(vs, t, '/');
+                int posIdx = std::stoi(p) - 1;
+                int uvIdx = t.empty() ? -1 : std::stoi(t) - 1;
+
+                std::pair<int, int> key(posIdx, uvIdx);
+                auto found = uniqueMap.find(key);
+                if (found != uniqueMap.end()) {
+                    face.push_back(found->second);
+                } else {
+                    unsigned int newIndex = (unsigned int)(outVerts.size() / 5);
+
+                    glm::vec3 r = glm::vec3(rot * glm::vec4(pos[posIdx], 1.0f));
+                    outVerts.push_back(r.x*scale + xoff);
+                    outVerts.push_back(r.y*scale + yoff);
+                    outVerts.push_back(r.z*scale + zoff);
+
+                    if (uvIdx >= 0) {
+                        outVerts.push_back(uv[uvIdx].x);
+                        outVerts.push_back(uv[uvIdx].y);
+                    } else {
+                        outVerts.push_back(0.0f);
+                        outVerts.push_back(0.0f);
+                    }
+
+                    uniqueMap[key] = newIndex;
+                    face.push_back(newIndex);
+                }
+
             }
-            // triangulate as a fan (handles triangles, quads, n-gons)
+            // triangulate as a fan — indices are already global, so no +num_verts here
             for (size_t i = 1; i + 1 < face.size(); i++) {
-                outIndices.push_back(face[0] + num_verts);
-                outIndices.push_back(face[i] + num_verts);
-                outIndices.push_back(face[i+1] + num_verts);
+                outIndices.push_back(face[0]);
+                outIndices.push_back(face[i]);
+                outIndices.push_back(face[i+1]);
             }
         }
         // ignore vt, vn, #, o, g, s, mtllib, usemtl for now
@@ -216,8 +301,10 @@ int main()
     // runs from -1 to +1 on both x and y, regardless of window size. z is depth.
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
-    loadOBJ("models/gun.obj", vertices, indices, 0.0f, 0.0f, 0.0f, 90.0f, 45.0f);
-    loadOBJ("models/gun.obj", vertices, indices, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f);
+    loadOBJ("models/gun/gun.obj", vertices, indices, 0.0f, 0.0f, 0.0f, 90.0f, 45.0f, 1.0f);
+    size_t gunCount = indices.size();
+    loadOBJ("models/skull/skull.obj", vertices, indices, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.01f);
+    size_t skullCount = indices.size();
 
     // VAO: records the "how to read the buffer" config so we can re-bind it later
     // with one call. In the Core profile you MUST have a VAO bound to draw.
@@ -240,13 +327,21 @@ int main()
              vertices.size() * sizeof(float),
              vertices.data(), GL_STATIC_DRAW); // change GL_STATIC_DRAW to GL_DYNAMIC_DRAW if tri will warp in 3d space
 
-    // Tell GL how to interpret the buffer for attribute slot 0 (our aPos):
-    //   index 0, 3 floats per vertex, not normalized,
-    //   stride = 3 floats between vertices, offset 0 at the start.
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
     glBindVertexArray(0); // stop recording (optional tidy-up)
+
+    unsigned int gunTex = loadTexture("models/gun/gun.png");
+    unsigned int skullTex = loadTexture("models/skull/skull.png");
+
+    // Tell the "tex0" sampler to read from texture unit 0 (set once).
+    glUseProgram(shaderProgram);
+    glUniform1i(glGetUniformLocation(shaderProgram, "tex0"), 0);
 
     // --- render loop ---
     while (!glfwWindowShouldClose(window))
@@ -292,8 +387,17 @@ int main()
         glUniformMatrix4fv(viewLoc,       1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(modelLoc,      1, GL_FALSE, glm::value_ptr(model));
 
+        glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, (GLsizei)indices.size(), GL_UNSIGNED_INT, 0);
+
+        // gun: first gunCount indices
+        glBindTexture(GL_TEXTURE_2D, gunTex);
+        glDrawElements(GL_TRIANGLES, (GLsizei)gunCount, GL_UNSIGNED_INT, 0);
+
+        // skull: the rest, starting gunCount indices into the EBO
+        glBindTexture(GL_TEXTURE_2D, skullTex);
+        glDrawElements(GL_TRIANGLES, (GLsizei)skullCount, GL_UNSIGNED_INT,
+                    (void*)(gunCount * sizeof(unsigned int)));
 
         glfwSwapBuffers(window);
         glfwPollEvents();
