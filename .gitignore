@@ -1,5 +1,5 @@
 # build output
-obj-creator.exe
+main.exe
 *.o
 *.exe
 

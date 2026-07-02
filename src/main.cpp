@@ -38,6 +38,11 @@ void update()
 
 }
 
+void removeChild(std::vector<Object*>& children, const Object* child)
+{
+    children.erase(std::remove(children.begin(), children.end(), child), children.end());
+}
+
 
 int main()
 {
@@ -48,17 +53,19 @@ int main()
     // --- init objects --- //
 
     Object gun = makeObject("assets/gun/gun.obj", "assets/gun/gun.png",
-                                std::vector<float>{0, 0, 0,  90, 45, 1.0f});
+                                Transform{0, 0, 0,  0, 45, 1.0f});
 
     Object skull = makeObject("assets/skull/skull.obj", "assets/skull/skull.png",
-                                 std::vector<float>{1, 1, 1,  0, 0, 0.01f});
+                                 Transform{-1, 0, 0,  0, 0, 0.01f});
 
     gun.children.push_back(&skull);
+    //removeChild(gun.children, &skull);
+    
     
     parents.push_back(&gun);
 
     // A Doom-style billboard sprite. yaw/pitch are ignored for sprites; only
-    // position (first 3) and scale (last) are used. Use a 1x1 RGBA PNG with aa
+    // position (first 3) and scale (last) are used. Use a 1x1 RGBA PNG with a
     // transparent background so the cutout looks right.
 
     for (Object* obj : parents) obj->Upload();
@@ -80,8 +87,12 @@ int main()
 
         for (Object* obj : parents)
         {
+            obj->world_pos = obj->transform;
             obj->Draw();
         }
+
+        gun.transform.yaw += 0.1;
+        gun.transform.pitch += 0.1;
 
         if (editing)
         {

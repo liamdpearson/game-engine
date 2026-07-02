@@ -14,11 +14,54 @@
 #include <sstream>
 #include <map>
 #include <utility>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+
+const float PI = 3.1415926;
+
+struct Transform
+{
+    float x;
+    float y;
+    float z;
+    float yaw;
+    float pitch;
+    float scale;
+
+    Transform operator+(const Transform& parent)
+    {
+        glm::mat4 model(1.0f);
+
+        model = glm::translate(model, glm::vec3(parent.x, parent.y, parent.z));
+        model = glm::rotate(model, glm::radians(parent.yaw), glm::vec3(0, 1, 0));
+        model = glm::rotate(model, glm::radians(parent.pitch), glm::vec3(-1, 0, 0));
+        model = glm::scale(model, glm::vec3(parent.scale));
+
+        glm::vec4 worldPos = model * glm::vec4(x, y, z, 1.0f);
+
+        return Transform{
+            worldPos.x,
+            worldPos.y,
+            worldPos.z,
+            parent.yaw + yaw,
+            parent.pitch + pitch,
+            parent.scale * scale
+        };
+    }
+    bool operator==(const Transform& other)
+    {
+        return (x == other.x && y == other.y && z == other.z
+                && yaw == other.yaw && pitch == other.pitch
+                && scale == other.scale);
+    }
+    Transform& operator=(const Transform&) = default;
+};
 
 
 struct Object
 {
-    std::vector<float> transform;
+    Transform transform;
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
     unsigned int VAO = 0, VBO = 0, EBO = 0;
@@ -26,7 +69,7 @@ struct Object
     GLsizei indexCount = 0;
 
 
-    std::vector<float> world_pos = transform;
+    Transform world_pos = transform;
     std::vector<Object*> children = {};
     bool billboard = false;  // if true, the quad is rotated to face the camera each frame
 
@@ -79,9 +122,9 @@ bool loadOBJ(const char* path,
                     std::vector<unsigned int>& outIndices);
 
 Object makeObject(const char* objPath, const char* texPath,
-                  std::vector<float> transform);
+                  Transform Transform);
 
-Object makeSprite(const char* texPath, std::vector<float> transform);
+Object makeSprite(const char* texPath, Transform transform);
 
 glm::mat4 billboardModel(const glm::vec3& pos, float scale, const glm::vec3& camPos);
 

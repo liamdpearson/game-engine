@@ -224,11 +224,12 @@ bool loadOBJ(const char* path,
 
 
 Object makeObject(const char* objPath, const char* texPath,
-                  std::vector<float> transform)
+                  Transform transform)
 {
     Object obj;
     loadOBJ(objPath, obj.vertices, obj.indices);
     obj.transform = transform;
+    obj.world_pos = transform;
     obj.texture = loadTexture(texPath);
     obj.indexCount = (GLsizei)obj.indices.size();
     
@@ -240,7 +241,7 @@ Object makeObject(const char* objPath, const char* texPath,
 // No OBJ file — the geometry is just two triangles. The transform's yaw/pitch are
 // ignored (billboardModel rebuilds the rotation each frame); only pos and scale matter.
 // Layout matches loadOBJ: 5 floats per vertex (x, y, z, u, v).
-Object makeSprite(const char* texPath, std::vector<float> transform)
+Object makeSprite(const char* texPath, Transform transform)
 {
     Object obj;
     obj.vertices = {
@@ -252,6 +253,7 @@ Object makeSprite(const char* texPath, std::vector<float> transform)
     };
     obj.indices = { 0, 1, 2,  2, 3, 0 };
     obj.transform = transform;
+    obj.world_pos = transform;
     obj.texture = loadTexture(texPath);
     obj.indexCount = (GLsizei)obj.indices.size();
     obj.billboard = true;
@@ -380,14 +382,14 @@ void drawObj(Object& obj)
     glm::mat4 model;
     if (obj.billboard) {
         // Rebuilt every frame so the quad faces the camera (Doom sprite).
-        model = billboardModel(glm::vec3(obj.transform[0], obj.transform[1], obj.transform[2]),
-                               obj.transform[5], cameraPos);
+        model = billboardModel(glm::vec3(obj.world_pos.x, obj.world_pos.y, obj.world_pos.z),
+                               obj.world_pos.scale, cameraPos);
     } else {
         model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(obj.transform[0], obj.transform[1], obj.transform[2])); // pos
-        model = glm::rotate(model, glm::radians(obj.transform[4]), glm::vec3(-1,0,0));  // pitch
-        model = glm::rotate(model, glm::radians(obj.transform[3]), glm::vec3(0,1,0));  // yaw
-        model = glm::scale(model, glm::vec3(obj.transform[5]));                        // scale
+        model = glm::translate(model, glm::vec3(obj.world_pos.x, obj.world_pos.y, obj.world_pos.z)); // pos
+        model = glm::rotate(model, glm::radians(obj.world_pos.yaw), glm::vec3(0,1,0));     // yaw
+        model = glm::rotate(model, glm::radians(obj.world_pos.pitch), glm::vec3(-1,0,0));  // pitch
+        model = glm::scale(model, glm::vec3(obj.world_pos.scale));                         // scale
     }
     glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
@@ -434,7 +436,11 @@ void Object::Upload()
 void Object::Draw()
 {
     drawObj(*this);
-    for (Object* child : children) child->Draw();
+    for (Object* child : this->children)
+    {
+        child->world_pos = child->transform + this->world_pos;
+        child->Draw();
+    }
 }
 
 Object::~Object()
