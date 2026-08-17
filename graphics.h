@@ -4,16 +4,20 @@
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/rotate_vector.hpp>    // rot vec
 #include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
 #include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <map>
 
 extern GLFWwindow* window;
 extern int SW, SH;
+
+extern float deltaTime, lastFrame, currentFrame;
 
 extern unsigned int shaderProgram;
 
@@ -148,3 +152,6 @@ void buildShaderProgram();
 unsigned int loadTexture(const char* src);
 
 void configureCamera(const Camera& cam);
+
+Mesh makeObj(const Transform& transform, const char* objSrc,
+             const char* texSrc);
