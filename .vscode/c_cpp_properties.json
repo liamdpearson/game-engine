@@ -1,0 +1,18 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/third_party/glad/include",
+                "${workspaceFolder}/third_party/glfw/include",
+                "${workspaceFolder}/third_party"
+            ],
+            "defines": [],
+            "compilerPath": "C:/TDM-GCC-64/bin/g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}
