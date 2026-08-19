@@ -7,12 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
 #include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
 
-#include <iostream>
 #include <vector>
-#include <algorithm>
-#include <fstream>
-#include <sstream>
-#include <map>
+
 
 extern GLFWwindow* window;
 extern int SW, SH;
@@ -22,6 +18,7 @@ extern float deltaTime, lastFrame, currentFrame;
 extern unsigned int shaderProgram;
 
 extern int modelLoc, projectionLoc, viewLoc;
+extern int viewPosLoc;
 
 extern const char* vertexShaderSource;
 extern const char* fragmentShaderSource;
@@ -152,6 +149,3 @@ void buildShaderProgram();
 unsigned int loadTexture(const char* src);
 
 void configureCamera(const Camera& cam);
-
-Mesh makeObj(const Transform& transform, const char* objSrc,
-             const char* texSrc);

@@ -3,6 +3,16 @@
 
 #include "graphics.h"
 
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <glm/glm.hpp>                  // vec3, mat4, basic types
+#include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
+#include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
+
+#include <iostream>
+
+
 GLFWwindow* window;
 int SW, SH;
 
@@ -11,13 +21,17 @@ float deltaTime, lastFrame, currentFrame;
 unsigned int shaderProgram;
 
 int modelLoc, projectionLoc, viewLoc;
+int viewPosLoc;
 
 const char* vertexShaderSource = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
+layout (location = 2) in vec3 aNormal;
 
 out vec2 TexCoord;
+out vec3 Normal;
+out vec3 FragPos;
 
 uniform mat4 model;
 uniform mat4 projection;
@@ -27,6 +41,8 @@ void main()
 {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
     TexCoord = aTexCoord;
+    Normal = mat3(transpose(inverse(model))) * aNormal;
+    FragPos = vec3(model * vec4(aPos, 1.0));
 }
 )glsl";
 
@@ -35,12 +51,33 @@ const char* fragmentShaderSource = R"glsl(
 out vec4 FragColor;
 
 in vec2 TexCoord;
+in vec3 Normal;
+in vec3 FragPos;
 
-uniform sampler2D ourTexture;
+uniform sampler2D t;
+uniform vec3 viewPos;
+
+float ambient = 0.2;
+float specularStrength = 0.5;
+vec3 lightColor = vec3(1.0, 1.0, 1.0);
 
 void main()
 {
-    FragColor = texture(ourTexture, TexCoord);
+    vec3 n = normalize(Normal);
+    vec3 lightDir = normalize(vec3(1.0, 0.0f, 1.0));
+
+    vec3 diff = max(dot(n, lightDir), 0.0) * lightColor; 
+
+    vec3 viewDir = normalize(viewPos - FragPos);
+    vec3 reflectDir = reflect(-lightDir, Normal);
+
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    vec3 specular = spec * specularStrength * lightColor;
+
+    vec3 lit = ambient + diff + specular;
+
+    vec4 tex = texture(t, TexCoord);
+    FragColor = vec4(tex.rgb * lit, tex.a);
 }
 )glsl";
 
@@ -100,6 +137,8 @@ void buildShaderProgram()
     modelLoc      = glGetUniformLocation(shaderProgram, "model");
     projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     viewLoc = glGetUniformLocation(shaderProgram, "view");
+
+    viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 }
 
 unsigned int loadTexture(const char* src)
@@ -149,100 +188,7 @@ void configureCamera(const Camera& cam)
 
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(viewLoc,       1, GL_FALSE, glm::value_ptr(view));
-}
-
-static bool loadObj(const char* path, std::vector<float>& outVerts,
-                    std::vector<unsigned int>& outIndices)
-{
-    std::ifstream file(path);
-    if (!file) { std::cout << "Failed to open " << path << '\n'; return false; }
-
-    std::vector<glm::vec3> pos;
-    std::vector<glm::vec2> uv;
-
-    std::map<std::pair<int, int>, unsigned int> uniqueMap;
-
-    std::string line;
-    while(std::getline(file, line))
-    {
-        std::istringstream ss(line);
-        std::string tag;
-        ss >> tag;
-
-        if (tag == "v") {
-            float x, y, z;
-            ss >> x >> y >> z;
-            glm::vec3 temp(x, y, z);
-            pos.push_back(temp);
-        }
-        else if (tag == "vt") {
-            float u, v;
-            ss >> u >> v;
-            glm::vec2 temp(u, v);
-            uv.push_back(temp);
-        }
-        else if (tag == "f") {
-            std::string vert;
-            std::vector<unsigned int> face;
-            while (ss >> vert) {
-                std::istringstream vs(vert);
-                std::string p, t, n;
-                std::getline(vs, p, '/');
-                std::getline(vs, t, '/');
-                int posIdx = std::stoi(p) - 1;
-                int uvIdx = t.empty() ? -1 : std::stoi(t) - 1;
-
-                std::pair<int, int> key(posIdx, uvIdx);
-                auto found = uniqueMap.find(key);
-                if (found != uniqueMap.end()) {
-                    face.push_back(found->second);
-                } else {
-                    unsigned int newIdx = (unsigned int)(outVerts.size() / 5);
-                    // pos
-                    outVerts.push_back(pos[posIdx].x);
-                    outVerts.push_back(pos[posIdx].y);
-                    outVerts.push_back(pos[posIdx].z);
-                    // uv
-                    if (uvIdx >= 0) {
-                        outVerts.push_back(uv[uvIdx].x);
-                        outVerts.push_back(uv[uvIdx].y);
-                    } else {
-                        outVerts.push_back(0.0f);
-                        outVerts.push_back(0.0f);
-                    }
-
-                    uniqueMap[key] = newIdx;
-                    face.push_back(newIdx);
-                }
-            }
-            // triangulate as a face
-            for (size_t i = 1; i + 1 < face.size(); i++) {
-                outIndices.push_back(face[0]);
-                outIndices.push_back(face[i]);
-                outIndices.push_back(face[i+1]);
-            }
-        }
-    }
-    return true;
-}
-
-Mesh makeObj(const Transform& transform, const char* objPath,
-             const char* texPath)
-{   
-    Mesh obj;
-
-    std::vector<float> verts;
-    std::vector<unsigned int> idx;
-    loadObj(objPath, verts, idx);
-    std::cout << verts.size() << ' ' << idx.size();
-
-    obj.transform = transform;
-    obj.setTexture(loadTexture(texPath));
-    obj.setIndexCount((GLsizei)idx.size());
-    obj.setIndices(idx);
-    obj.setVertices(verts);
-
-    return obj;
+    glUniform3fv(viewPosLoc, 1, glm::value_ptr(cam.getPos()));
 }
 
 void Object::Upload()
@@ -269,13 +215,16 @@ void Mesh::Upload()
             indices.size() * sizeof(unsigned int), 
             indices.data(), GL_STATIC_DRAW);
 
-    const GLsizei stride = 5 * sizeof(float);
+    const GLsizei stride = 8 * sizeof(float);
     // pos
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
     // uv
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(float)));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
 

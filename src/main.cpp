@@ -1,5 +1,8 @@
 #include "main.h"
 
+#include <iostream>
+
+
 int main()
 {
     if (!glfwInit()) { std::cout << "Failed to init GLFW\n"; return -1; }
@@ -53,31 +56,6 @@ int main()
                        "assets/gun/gun.obj", "assets/gun/gun.png");
 
     rootObjs.push_back(&gun);
-
-    Mesh rect;
-
-    // define rect
-    std::vector<float> vertices = {
-         // pos               // uv
-         0.5f,  0.5f, 0.5f,   1.0f, 1.0f, 
-         0.5f, -0.5f, 0.5f,   1.0f, 0.0f,
-        -0.5f, -0.5f, 0.5f,   0.0f, 0.0f,
-        -0.5f,  0.5f, 0.5f,   0.0f, 1.0f
-    };
-    rect.setVertices(vertices);
-
-    std::vector<unsigned int> indices = {
-        0, 1, 3,
-        1, 2, 3
-    };
-    rect.setIndices(indices);
-    rect.setIndexCount((GLsizei)indices.size());
-
-    // generate texture
-    unsigned int texture = loadTexture("image.png");
-    rect.setTexture(texture);
-
-    gun.children.push_back(&rect);
 
     Camera camera{90.0f, glm::vec3(0.0f, 0.0f, 3.0f),
                   glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
@@ -136,10 +114,6 @@ int main()
         camera.transform.x += moveDir.x * deltaTime;
         camera.transform.y += moveDir.y * deltaTime;
         camera.transform.z += moveDir.z * deltaTime;
-
-        gun.transform.yaw += 0.1f;
-        gun.transform.pitch += 0.1f;
-        gun.transform.roll += 0.1f;
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;

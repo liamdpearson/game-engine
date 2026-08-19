@@ -1,6 +1,10 @@
 #pragma once
 
-#include "graphics.h"
+#include "graphics/graphics.h"
+#include "load/load.h"
+
+#include <algorithm>
+
 
 std::vector<int> keys_pressed;
 std::vector<int> mouse_buttons_pressed;
