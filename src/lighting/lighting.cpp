@@ -3,6 +3,9 @@
 #include "../graphics/graphics.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
+#include <xatlas/xatlas.h>
 
 #include <vector>
 #include <iostream>
@@ -40,23 +43,198 @@ void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>&
     Object::CollectOccluders(parentWorld, out);
 }
 
-void Object::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders)
+void Object::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
+                          const std::vector<Light>& lights)
 {
     glm::mat4 world = parentWorld * transform.matrix();
-    for (Object*& child : children) child->BakeLighting(world, occluders);
+    for (Object*& child : children) child->BakeLighting(world, occluders, lights);
 }
 
-void StaticMesh::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders)
+static float cross2D(const glm::vec2& a, const glm::vec2& b)
+{
+    return a.x * b.y - a.y * b.x;
+}
+
+// dont ask me how this function works Claude generated it.
+//
+// Möller–Trumbore. Two-sided on purpose: the back face of a closed mesh blocks
+// light just as well as the front, so there's no winding cull here. Returns on
+// the first hit — a shadow ray only cares *whether* something blocks, not what.
+static bool rayOccluded(const glm::vec3& origin, const glm::vec3& dir,
+                        float maxDist, const std::vector<Tri>& tris)
+{
+    const float EPS = 1e-6f;
+
+    for (const Tri& t : tris)
+    {
+        glm::vec3 e1 = t.b - t.a;
+        glm::vec3 e2 = t.c - t.a;
+        glm::vec3 p  = glm::cross(dir, e2);
+        float det = glm::dot(e1, p);
+        if (glm::abs(det) < EPS) continue;   // ray runs parallel to the triangle
+
+        float invDet = 1.0f / det;
+        glm::vec3 tv = origin - t.a;
+
+        float u = glm::dot(tv, p) * invDet;
+        if (u < 0.0f || u > 1.0f) continue;
+
+        glm::vec3 q = glm::cross(tv, e1);
+        float v = glm::dot(dir, q) * invDet;
+        if (v < 0.0f || u + v > 1.0f) continue;
+
+        float hit = glm::dot(e2, q) * invDet;
+        if (hit > EPS && hit < maxDist) return true;   // blocked before the light
+    }
+    return false;
+}
+
+void StaticMesh::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
+                              const std::vector<Light>& lights)
 {
     glm::mat4 world = parentWorld * transform.matrix();
+    glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(world)));
     const std::vector<unsigned int>& indices = this->getIndices();
     const std::vector<float>& vertices = this->getVertices();
+    const xatlas::Atlas* atlas = this->getAtlas();
+    const float wMargin = 1.0f / (float)atlas->width;
+    const float wOffset = wMargin / 2.0f;
+    const float hMargin = 1.0f / (float)atlas->height;
+    const float hOffset = hMargin / 2.0f;
 
-    // ADD CODE HERE THAT CREATES LIGHT MAP
+    std::vector<glm::vec3> pixels(atlas->width * atlas->height, glm::vec3(0.0f));
+    std::vector<int> covMask(atlas->width * atlas->height, 0);
+
+    for (size_t i = 0; i + 2 < indices.size(); i += 3)
+    {
+        glm::vec3 pos[3];
+        glm::vec3 norm[3];
+        glm::vec2 uv[3];
+        float uMin = 2.0f, uMax = -1.0f;
+        float vMin = 2.0f, vMax = -1.0f;
+        for (int c = 0; c < 3; c++)
+        {   
+            size_t v = (size_t)indices[i + c] * VERTEX_FLOATS;
+            pos[c]  = glm::vec3(vertices[v + 0], vertices[v + 1], vertices[v + 2]);
+            norm[c] = glm::vec3(vertices[v + 5], vertices[v + 6], vertices[v + 7]);
+            uv[c]   = glm::vec2(vertices[v + 8], vertices[v + 9]);
+
+            uMin = std::min(uMin, uv[c].x);  uMax = std::max(uMax, uv[c].x);
+            vMin = std::min(vMin, uv[c].y);  vMax = std::max(vMax, uv[c].y);
+        }
+        
+        float area = cross2D(uv[1] - uv[0], uv[2] - uv[0]);
+        if (fabsf(area) < 1e-8f) continue; // degenerate triangle
+
+        glm::vec3 wp0 = glm::vec3(world * glm::vec4(pos[0], 1.0f));
+        glm::vec3 wp1 = glm::vec3(world * glm::vec4(pos[1], 1.0f));
+        glm::vec3 wp2 = glm::vec3(world * glm::vec4(pos[2], 1.0f));
+
+        glm::vec3 wn0 = glm::normalize(normalMat * norm[0]);
+        glm::vec3 wn1 = glm::normalize(normalMat * norm[1]);
+        glm::vec3 wn2 = glm::normalize(normalMat * norm[2]);
+
+        int colMin = std::max(0, (int)std::floor(uMin * atlas->width  - 0.5f));
+        int colMax = std::min((int)atlas->width  - 1, (int)std::ceil(uMax * atlas->width  - 0.5f));
+        int rowMin = std::max(0, (int)std::floor(vMin * atlas->height - 0.5f));
+        int rowMax = std::min((int)atlas->height - 1, (int)std::ceil(vMax * atlas->height - 0.5f));
+
+        for (int row = rowMin; row <= rowMax; row++)
+        {
+            for (int col = colMin; col <= colMax; col++)
+            {
+                float texelu = col * wMargin + wOffset;
+                float texelv = row * hMargin + hOffset;
+
+                // cheap check
+                if (texelu < uMin || texelu > uMax || texelv < vMin || texelv > vMax)
+                    continue;
+                
+                glm::vec2 p(texelu, texelv);
+                float w0 = cross2D(uv[2] - uv[1], p - uv[1]) / area;
+                float w1 = cross2D(uv[0] - uv[2], p - uv[2]) / area;
+                float w2 = 1 - w0 - w1;
+
+                if (w0 < -1e-5f || w1 < -1e-5f || w2 < -1e-5f)
+                    continue;
+
+                glm::vec3 worldPos = w0*wp0 + w1*wp1 + w2*wp2;
+                glm::vec3 worldNorm = glm::normalize(w0*wn0 + w1*wn1 + w2*wn2);
+
+                glm::vec3 lit(0.2f); // 0.2f magic ambient number for now
+
+                for (const Light& light : lights)
+                {
+                    glm::vec3 toLight = light.pos - worldPos;
+                    float dist = glm::length(toLight);
+                    if (dist < 0.0001f) continue;
+
+                    glm::vec3 dir = toLight / dist;
+                    float lambert = glm::max(glm::dot(worldNorm, dir), 0.0f);
+                    if (lambert <= 0) continue;
+
+                    glm::vec3 origin = worldPos + worldNorm * 1e-3f; // shadow bias
+                    if (rayOccluded(origin, dir, dist, occluders)) continue;
+
+                    float atten = light.intensity / (1.0f + (dist * dist / light.radius));
+
+                    lit += light.color * lambert * atten;
+                }
+
+                // hue preservation see sample light at
+                float peak = glm::max(lit.r, glm::max(lit.g, lit.b));
+                if (peak > 1.0f) lit /= peak;
+
+                pixels[row * atlas->width + col] = lit;
+                covMask[row * atlas->width + col] = 1;
+            }
+        }
+    }
+    for (int j = 0; j < 2; j++) {
+        std::vector<int> copy = covMask;
+        for (size_t i = 0; i < covMask.size(); i++)
+        {
+            if (covMask[i] == 1) continue;
+
+            glm::vec3 total(0.0f);
+            int count = 0;
+            bool onTopEdge = false;
+            bool onBottomEdge = false;
+            bool onLeftEdge = false;
+            bool onRightEdge = false;
+
+            if (i < atlas->width)                   onTopEdge = true;
+            if (i + atlas->width >= pixels.size())  onBottomEdge = true;
+            if (i % atlas->width == 0)              onLeftEdge = true;
+            if (i % atlas->width == atlas->width-1) onRightEdge = true;
+
+            if (!onTopEdge) {
+                if (covMask[i - atlas->width] == 1) { total += pixels[i - atlas->width]; count++; }
+            }
+            if (!onBottomEdge) {
+                if (covMask[i + atlas->width] == 1) { total += pixels[i + atlas->width]; count++; }
+            }
+            if (!onLeftEdge) {
+                if (covMask[i - 1] == 1) { total += pixels[i - 1]; count++; }
+            }
+            if (!onRightEdge) {
+                if (covMask[i + 1] == 1) { total += pixels[i + 1]; count++; }
+            }
+            if (count > 0) {
+                pixels[i] = total / float(count);
+                copy[i] = 1;
+            }
+        }
+        covMask = copy;
+    }
+
+
+    this->setLightMap(loadLightMap(pixels, atlas->width, atlas->height));
+
     
     // pass parent world because not every object is a static mesh so
     // Object::CollectOccluders has to * transform.matrix() aswell.
-    Object::BakeLighting(parentWorld, occluders);
+    Object::BakeLighting(parentWorld, occluders, lights);
 }
 
 bool bakeSceneLighting(const std::vector<Light>& lights,
@@ -68,13 +246,13 @@ bool bakeSceneLighting(const std::vector<Light>& lights,
     for (Object*& obj : rootObjs)
         obj->CollectOccluders(glm::mat4(1.0f), occluders);
     
-    std::cout << "bake: occluder Tris: " << occluders.size() << '\n';
+    std::cout << "baked " << occluders.size() << " occluder Tris"  << '\n';
 
-    // for (Object*& obj : rootObjs)
-    //     obj->BakeLighting(glm::mat4(1.0f), occluders);
+    for (Object*& obj : rootObjs)
+        obj->BakeLighting(glm::mat4(1.0f), occluders, lights);
 
     double end = glfwGetTime();
-    std::cout << "bake: took " << (end - start) << "s\n";
+    std::cout << "bake took " << (end - start) << "s\n";
 
     return true;
 }

@@ -165,7 +165,7 @@ void buildShaderProgram()
     viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 }
 
-unsigned int loadTexture(const char* src)
+unsigned int loadPNGJPG(const char* src)
 {
     unsigned int texture;
     glGenTextures(1, &texture);
@@ -191,6 +191,24 @@ unsigned int loadTexture(const char* src)
 
     stbi_image_free(data);
     return texture;
+}
+
+unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height)
+{
+    unsigned int lightMap;
+    glGenTextures(1, &lightMap);
+    glBindTexture(GL_TEXTURE_2D, lightMap);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_FLOAT, pixels.data());
+    //glGenerateMipmap(GL_TEXTURE_2D);
+
+    return lightMap;
 }
 
 void configureCamera(const Camera& cam)

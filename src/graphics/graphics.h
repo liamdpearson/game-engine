@@ -43,6 +43,8 @@ struct Transform
 
 struct Tri{ glm::vec3 a, b, c; };
 
+struct Light;
+
 class Object
 {
     private:
@@ -60,7 +62,8 @@ class Object
         virtual void Compose();
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
-        virtual void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders);
+        virtual void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
+                                  const std::vector<Light>& lights);
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
@@ -111,7 +114,8 @@ class StaticMesh : public Mesh
 
         void Draw() override;
         void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
-        void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders);
+        void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
+                          const std::vector<Light>& lights);
 
         void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
         unsigned int getLightMap() const { return this->lightMap; }
@@ -177,6 +181,8 @@ unsigned int compileShader(GLenum type, const char* src);
 
 void buildShaderProgram();
 
-unsigned int loadTexture(const char* src);
+unsigned int loadPNGJPG(const char* src);
+
+unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height);
 
 void configureCamera(const Camera& cam);

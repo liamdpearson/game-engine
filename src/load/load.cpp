@@ -35,7 +35,7 @@ static bool GenUV2(xatlas::Atlas*& atlas,
 
     xatlas::ChartOptions chartOptions;
     xatlas::PackOptions packOptions;
-    packOptions.resolution = 1024;
+    packOptions.resolution = 2048;
     packOptions.padding = 4;
 
     xatlas::Generate(atlas, chartOptions, packOptions);
@@ -191,8 +191,7 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadTexture(texPath));
-    obj.setLightMap(loadTexture("image.png"));
+    obj.setTexture(loadPNGJPG(texPath));
     obj.setIndexCount((GLsizei)idx.size());
     obj.lightMode = 1;
 
@@ -213,7 +212,7 @@ Mesh makeObj(const Transform& transform, const char* objPath,
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadTexture(texPath));
+    obj.setTexture(loadPNGJPG(texPath));
     obj.setIndexCount((GLsizei)idx.size());
 
     return obj;

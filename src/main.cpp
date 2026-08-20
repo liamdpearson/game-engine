@@ -54,7 +54,7 @@ int main()
     // define objects
     std::vector<Object*> rootObjs;
 
-    Mesh gun = makeObj(Transform{0.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    StaticMesh gun = makeStaticObj(Transform{0.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
                        "assets/gun/gun.obj", "assets/gun/gun.png");
 
     rootObjs.push_back(&gun);
@@ -70,6 +70,9 @@ int main()
     rootObjs.push_back(&camera);
     
     std::vector<Light> lights;
+
+    lights.push_back(Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
+                           20.0f, 10.0f});
 
     bakeSceneLighting(lights, rootObjs);
 
@@ -126,9 +129,9 @@ int main()
         camera.transform.y += moveDir.y * deltaTime;
         camera.transform.z += moveDir.z * deltaTime;
 
-        gun.transform.yaw += 0.1f;
-        gun.transform.pitch += 0.1f;
-        gun.transform.roll += 0.1f;
+        // gun.transform.yaw += 0.1f;
+        // gun.transform.pitch += 0.1f;
+        // gun.transform.roll += 0.1f;
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
