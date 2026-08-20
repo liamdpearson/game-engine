@@ -2,12 +2,81 @@
 
 #include "../graphics/graphics.h"
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
+#include <xatlas/xatlas.h>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <iostream>
 #include <map>
 
+
+static bool GenUV2(xatlas::Atlas*& atlas,
+                   std::vector<float>& verts,std::vector<unsigned int>& idx)
+{
+    atlas = xatlas::Create();
+
+    xatlas::MeshDecl meshDecl;
+    meshDecl.vertexCount = static_cast<uint32_t>(verts.size() / VERTEX_FLOATS);
+    meshDecl.vertexPositionData = verts.data();
+    meshDecl.vertexPositionStride = sizeof(float) * VERTEX_FLOATS;
+
+    meshDecl.indexCount = static_cast<uint32_t>(idx.size());
+    meshDecl.indexData = idx.data();
+    meshDecl.indexFormat = xatlas::IndexFormat::UInt32;
+
+
+    xatlas::AddMeshError error = xatlas::AddMesh(atlas, meshDecl);
+    if (error != xatlas::AddMeshError::Success)
+    {
+        std::cout << "Error adding mesh: " << xatlas::StringForEnum(error) << '\n';
+        xatlas::Destroy(atlas);
+        return false;
+    }
+
+    xatlas::ChartOptions chartOptions;
+    xatlas::PackOptions packOptions;
+    packOptions.resolution = 1024;
+    packOptions.padding = 4;
+
+    xatlas::Generate(atlas, chartOptions, packOptions);
+
+    xatlas::Mesh& outputMesh = atlas->meshes[0];
+
+    std::vector<float> finalVerts;
+    std::vector<unsigned int> finalIdx;
+
+    for (uint32_t i = 0; i < outputMesh.vertexCount; i++)
+    {
+        const xatlas::Vertex& xatlasVert = outputMesh.vertexArray[i];
+
+        const uint32_t ogVertIdx = xatlasVert.xref * VERTEX_FLOATS;
+        //pos
+        finalVerts.push_back(verts[ogVertIdx]);
+        finalVerts.push_back(verts[ogVertIdx + 1]);
+        finalVerts.push_back(verts[ogVertIdx + 2]);
+        // uv1
+        finalVerts.push_back(verts[ogVertIdx + 3]);
+        finalVerts.push_back(verts[ogVertIdx + 4]);
+        // norm
+        finalVerts.push_back(verts[ogVertIdx + 5]);
+        finalVerts.push_back(verts[ogVertIdx + 6]);
+        finalVerts.push_back(verts[ogVertIdx + 7]);
+        // uv2
+        finalVerts.push_back(xatlasVert.uv[0] / static_cast<float>(atlas->width));
+        finalVerts.push_back(xatlasVert.uv[1] / static_cast<float>(atlas->height));
+    }
+    
+    for (uint32_t i = 0; i < outputMesh.indexCount; i++) {
+        finalIdx.push_back(outputMesh.indexArray[i]);
+    }
+
+    verts = finalVerts;
+    idx = finalIdx;
+
+    std::cout << "Succesfully created second uv set. New vert count: "
+              << finalVerts.size() / VERTEX_FLOATS << '\n';
+    return true;
+}
 
 static bool loadObj(const char* path, std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices)
@@ -64,7 +133,7 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
                 if (found != uniqueMap.end()) {
                     face.push_back(found->second);
                 } else {
-                    unsigned int newIdx = (unsigned int)(outVerts.size() / 8);
+                    unsigned int newIdx = (unsigned int)(outVerts.size() / VERTEX_FLOATS);
                     // pos
                     outVerts.push_back(pos[posIdx].x);
                     outVerts.push_back(pos[posIdx].y);
@@ -87,6 +156,9 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
                         outVerts.push_back(0.0f);
                         outVerts.push_back(0.0f);
                     }
+                    // extra two to be filled with second uv set for lightmaps
+                    outVerts.push_back(0.0f);
+                    outVerts.push_back(0.0f);
 
                     uniqueMap[key] = newIdx;
                     face.push_back(newIdx);
@@ -103,21 +175,46 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
     return true;
 }
 
+StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
+                         const char* texPath)
+{   
+    StaticMesh obj;
+
+    std::vector<float> verts;
+    std::vector<unsigned int> idx;
+    loadObj(objPath, verts, idx);
+
+    xatlas::Atlas* atlas;
+    GenUV2(atlas, verts, idx);
+    
+
+    obj.transform = transform;
+    obj.setVertices(verts);
+    obj.setIndices(idx);
+    obj.setTexture(loadTexture(texPath));
+    obj.setLightMap(loadTexture("image.png"));
+    obj.setIndexCount((GLsizei)idx.size());
+    obj.lightMode = 1;
+
+    obj.setAtlas(atlas);
+    
+    return obj;
+}
+
 Mesh makeObj(const Transform& transform, const char* objPath,
              const char* texPath)
-{   
+{
     Mesh obj;
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
     loadObj(objPath, verts, idx);
-    std::cout << verts.size() << ' ' << idx.size();
 
     obj.transform = transform;
+    obj.setVertices(verts);
+    obj.setIndices(idx);
     obj.setTexture(loadTexture(texPath));
     obj.setIndexCount((GLsizei)idx.size());
-    obj.setIndices(idx);
-    obj.setVertices(verts);
 
     return obj;
 }

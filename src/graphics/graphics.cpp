@@ -20,28 +20,32 @@ float deltaTime, lastFrame, currentFrame;
 
 unsigned int shaderProgram;
 
-int modelLoc, projectionLoc, viewLoc;
-int viewPosLoc;
+int modelLoc, projectionLoc, viewLoc, normalMatLoc;
+int texLoc, lightMapLoc, lightModeLoc, viewPosLoc;
 
 const char* vertexShaderSource = R"glsl(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
+layout (location = 3) in vec2 aLightMapCoord;
 
 out vec2 TexCoord;
 out vec3 Normal;
+out vec2 LightMapCoord;
 out vec3 FragPos;
 
 uniform mat4 model;
 uniform mat4 projection;
 uniform mat4 view;
+uniform mat3 normalMat;
 
 void main()
 {
     gl_Position = projection * view * model * vec4(aPos, 1.0);
     TexCoord = aTexCoord;
-    Normal = mat3(transpose(inverse(model))) * aNormal;
+    LightMapCoord = aLightMapCoord;
+    Normal = normalMat * aNormal;
     FragPos = vec3(model * vec4(aPos, 1.0));
 }
 )glsl";
@@ -52,9 +56,12 @@ out vec4 FragColor;
 
 in vec2 TexCoord;
 in vec3 Normal;
+in vec2 LightMapCoord;
 in vec3 FragPos;
 
-uniform sampler2D t;
+uniform sampler2D tex;
+uniform sampler2D lightMap;
+uniform int lightMode;
 uniform vec3 viewPos;
 
 float ambient = 0.2;
@@ -63,21 +70,32 @@ vec3 lightColor = vec3(1.0, 1.0, 1.0);
 
 void main()
 {
-    vec3 n = normalize(Normal);
-    vec3 lightDir = normalize(vec3(1.0, 0.0f, 1.0));
+    vec3 lit;
 
-    vec3 diff = max(dot(n, lightDir), 0.0) * lightColor; 
+    if (lightMode == 0)
+    {
+        vec3 n = normalize(Normal);
+        vec3 lightDir = normalize(vec3(1.0, 0.0f, 1.0));
 
-    vec3 viewDir = normalize(viewPos - FragPos);
-    vec3 reflectDir = reflect(-lightDir, Normal);
+        vec3 diff = max(dot(n, lightDir), 0.0) * lightColor; 
 
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = spec * specularStrength * lightColor;
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 reflectDir = reflect(-lightDir, n);
 
-    vec3 lit = ambient + diff + specular;
+        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+        vec3 specular = spec * specularStrength * lightColor;
 
-    vec4 tex = texture(t, TexCoord);
-    FragColor = vec4(tex.rgb * lit, tex.a);
+        lit = ambient + diff + specular;
+        
+    }
+    else if (lightMode == 1)
+    {
+        vec4 l = texture(lightMap, LightMapCoord);
+        lit = l.rgb;
+    }
+
+    vec4 t = texture(tex, TexCoord);
+    FragColor = vec4(t.rgb * lit, t.a);
 }
 )glsl";
 
@@ -134,10 +152,16 @@ void buildShaderProgram()
 {
     shaderProgram = linkShaderProgram(vertexShaderSource, fragmentShaderSource);
 
+    // vert shader uniforms
     modelLoc      = glGetUniformLocation(shaderProgram, "model");
     projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    viewLoc = glGetUniformLocation(shaderProgram, "view");
+    viewLoc       = glGetUniformLocation(shaderProgram, "view");
+    normalMatLoc  = glGetUniformLocation(shaderProgram, "normalMat");
 
+    // frag shader uniforms
+    texLoc = glGetUniformLocation(shaderProgram, "tex");
+    lightMapLoc = glGetUniformLocation(shaderProgram, "lightMap");
+    lightModeLoc = glGetUniformLocation(shaderProgram, "lightMode");
     viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 }
 
@@ -215,16 +239,19 @@ void Mesh::Upload()
             indices.size() * sizeof(unsigned int), 
             indices.data(), GL_STATIC_DRAW);
 
-    const GLsizei stride = 8 * sizeof(float);
+    const GLsizei stride = VERTEX_FLOATS * sizeof(float);
     // pos
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (void*)0);
     glEnableVertexAttribArray(0);
     // uv
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-
+    // norm
     glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, (void*)(5 * sizeof(float)));
     glEnableVertexAttribArray(2);
+    // uv2
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
 
@@ -244,13 +271,30 @@ void Object::Draw()
 
 void Mesh::Draw()
 {
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(this->getWorld()));
+    glUniform1i(lightModeLoc, lightMode);
 
+    glm::mat4 w = this->getWorld();
+    glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(w)));
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(w));
+    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(normalMat));
+
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture);
+    glUniform1i(texLoc, 0);
+
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
 
     Object::Draw();
+}
+
+void StaticMesh::Draw()
+{
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, lightMap);
+    glUniform1i(lightMapLoc, 1);
+
+    Mesh::Draw();
 }
 
 void Object::Compose()
@@ -279,4 +323,9 @@ Mesh::~Mesh()
     glDeleteBuffers(1, &VBO);
     glDeleteBuffers(1, &EBO);
     glDeleteTextures(1, &texture);
+}
+
+StaticMesh::~StaticMesh()
+{
+    glDeleteTextures(1, &lightMap);
 }

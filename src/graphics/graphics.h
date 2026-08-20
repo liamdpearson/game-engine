@@ -7,21 +7,11 @@
 #include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
 #include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
 
+#include <xatlas/xatlas.h>
+
 #include <vector>
 
-
-extern GLFWwindow* window;
-extern int SW, SH;
-
-extern float deltaTime, lastFrame, currentFrame;
-
-extern unsigned int shaderProgram;
-
-extern int modelLoc, projectionLoc, viewLoc;
-extern int viewPosLoc;
-
-extern const char* vertexShaderSource;
-extern const char* fragmentShaderSource;
+const int VERTEX_FLOATS = 10;
 
 struct Transform
 {
@@ -51,6 +41,8 @@ struct Transform
     Transform& operator=(const Transform&) = default;
 };
 
+struct Tri{ glm::vec3 a, b, c; };
+
 class Object
 {
     private:
@@ -67,6 +59,8 @@ class Object
         virtual void Upload();
         virtual void Compose();
         virtual void Draw();
+        virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
+        virtual void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders);
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
@@ -80,10 +74,12 @@ class Mesh : public Object
         std::vector<float> vertices;
         std::vector<unsigned int> indices;
         unsigned int texture = 0;
+
         GLsizei indexCount = 0;
         unsigned int VAO = 0, VBO = 0, EBO = 0;
 
     public:
+        int lightMode = 0;
         Mesh() = default;
 
         void Upload() override;
@@ -104,6 +100,28 @@ class Mesh : public Object
         ~Mesh() override;
 };
 
+class StaticMesh : public Mesh
+{
+    private:
+        unsigned int lightMap = 0;
+        xatlas::Atlas* atlas = nullptr;
+
+    public:
+        StaticMesh() = default;
+
+        void Draw() override;
+        void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
+        void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders);
+
+        void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
+        unsigned int getLightMap() const { return this->lightMap; }
+        
+        void setAtlas(xatlas::Atlas*& at) { this->atlas = at; }
+        xatlas::Atlas* getAtlas() const { return this->atlas; }
+    
+        ~StaticMesh() override;
+};
+
 class Camera : public Object
 {
     private:
@@ -116,7 +134,7 @@ class Camera : public Object
 
         Camera(const float FOV, const glm::vec3 pos,
                glm::vec3 front, glm::vec3 up)
-        : FOV(FOV), pos(pos), front(front), up(up)
+        : pos(pos), front(front), up(up), FOV(FOV)
         {
             // Compose() recomputes pos/front/up from `transform` every frame,
             // so the transform (not just the fields above) must encode position.
@@ -139,6 +157,19 @@ class Camera : public Object
 
         ~Camera() = default;
 };
+
+extern GLFWwindow* window;
+extern int SW, SH;
+
+extern float deltaTime, lastFrame, currentFrame;
+
+extern unsigned int shaderProgram;
+
+extern int modelLoc, projectionLoc, viewLoc, normalMatLoc;
+extern int texLoc, lightMapLoc, lightModeLoc, viewPosLoc;
+
+extern const char* vertexShaderSource;
+extern const char* fragmentShaderSource;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 

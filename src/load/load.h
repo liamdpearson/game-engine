@@ -2,5 +2,8 @@
 
 #include "../graphics/graphics.h"
 
+StaticMesh makeStaticObj(const Transform& transform, const char* objSrc,
+                         const char* texSrc);
+
 Mesh makeObj(const Transform& transform, const char* objSrc,
              const char* texSrc);
