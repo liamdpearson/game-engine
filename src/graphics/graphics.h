@@ -63,7 +63,7 @@ class Object
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
         virtual void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                                  const std::vector<Light>& lights);
+                                  const std::vector<Light>& lights, float ambient);
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
@@ -115,7 +115,7 @@ class StaticMesh : public Mesh
         void Draw() override;
         void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
         void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                          const std::vector<Light>& lights);
+                          const std::vector<Light>& lights, float ambient);
 
         void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
         unsigned int getLightMap() const { return this->lightMap; }
@@ -181,7 +181,7 @@ unsigned int compileShader(GLenum type, const char* src);
 
 void buildShaderProgram();
 
-unsigned int loadPNGJPG(const char* src);
+unsigned int loadPNGJPG(const char* src, bool pixelated, bool clampEdge = false);
 
 unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height);
 

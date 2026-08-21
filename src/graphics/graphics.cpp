@@ -165,16 +165,19 @@ void buildShaderProgram()
     viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 }
 
-unsigned int loadPNGJPG(const char* src)
+unsigned int loadPNGJPG(const char* src, bool pixelated, bool clampEdge)
 {
     unsigned int texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    GLint wrap = clampEdge ? GL_CLAMP_TO_EDGE : GL_REPEAT;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    clampEdge ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+                    pixelated ? GL_NEAREST : GL_LINEAR);
 
     int width, height, nrChannels;
     stbi_set_flip_vertically_on_load(true); // pngs are top down gl expects bottom up

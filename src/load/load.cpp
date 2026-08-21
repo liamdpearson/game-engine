@@ -10,8 +10,27 @@
 #include <map>
 
 
-static bool GenUV2(xatlas::Atlas*& atlas,
-                   std::vector<float>& verts,std::vector<unsigned int>& idx)
+static float getMeshArea(const std::vector<float>& verts,
+                         const std::vector<unsigned int>& idx)
+{
+    float area;
+
+    for (size_t i = 0; i + 2 < idx.size(); i += 3)
+    {
+        glm::vec3 pos[3];
+        for (int c = 0; c < 3; c++)
+        {
+            size_t v = (size_t)idx[i + c] * VERTEX_FLOATS;
+            pos[c] = glm::vec3(verts[v], verts[v + 1], verts[v + 2]);
+        }
+        area += 0.5f * glm::length(glm::cross(pos[2] - pos[0], pos[1] - pos[0]));
+    }
+    std::cout << "area: " << area << '\n';
+    return area;
+}
+
+static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
+                   std::vector<unsigned int>& idx, float resolution)
 {
     atlas = xatlas::Create();
 
@@ -35,7 +54,7 @@ static bool GenUV2(xatlas::Atlas*& atlas,
 
     xatlas::ChartOptions chartOptions;
     xatlas::PackOptions packOptions;
-    packOptions.resolution = 2048;
+    packOptions.resolution = resolution;
     packOptions.padding = 4;
 
     xatlas::Generate(atlas, chartOptions, packOptions);
@@ -176,7 +195,7 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
 }
 
 StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
-                         const char* texPath)
+                         const char* texPath, bool pixelated)
 {   
     StaticMesh obj;
 
@@ -185,13 +204,18 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     loadObj(objPath, verts, idx);
 
     xatlas::Atlas* atlas;
-    GenUV2(atlas, verts, idx);
+    float ogArea = getMeshArea(verts, idx);
+    float scaledArea = (transform.scaleX * transform.scaleY +
+                        transform.scaleX * transform.scaleZ +
+                        transform.scaleY * transform.scaleZ) * ogArea;
+    float resolution = std::sqrt(scaledArea * 64 * 64);
+    GenUV2(atlas, verts, idx, resolution);
     
 
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadPNGJPG(texPath));
+    obj.setTexture(loadPNGJPG(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
     obj.lightMode = 1;
 
@@ -201,7 +225,7 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
 }
 
 Mesh makeObj(const Transform& transform, const char* objPath,
-             const char* texPath)
+             const char* texPath, bool pixelated)
 {
     Mesh obj;
 
@@ -212,7 +236,7 @@ Mesh makeObj(const Transform& transform, const char* objPath,
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadPNGJPG(texPath));
+    obj.setTexture(loadPNGJPG(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
 
     return obj;

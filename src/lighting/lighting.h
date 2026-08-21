@@ -16,4 +16,4 @@ struct Light
 };
 
 bool bakeSceneLighting(const std::vector<Light>& lights,
-                       std::vector<Object*>& rootObjs);
+                       std::vector<Object*>& rootObjs, float ambient);

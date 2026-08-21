@@ -3,7 +3,7 @@
 #include "../graphics/graphics.h"
 
 StaticMesh makeStaticObj(const Transform& transform, const char* objSrc,
-                         const char* texSrc);
+                         const char* texSrc, bool pixelated);
 
 Mesh makeObj(const Transform& transform, const char* objSrc,
-             const char* texSrc);
+             const char* texSrc, bool pixelated);

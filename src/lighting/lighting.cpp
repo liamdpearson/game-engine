@@ -44,10 +44,10 @@ void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>&
 }
 
 void Object::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                          const std::vector<Light>& lights)
+                          const std::vector<Light>& lights, float ambient)
 {
     glm::mat4 world = parentWorld * transform.matrix();
-    for (Object*& child : children) child->BakeLighting(world, occluders, lights);
+    for (Object*& child : children) child->BakeLighting(world, occluders, lights, ambient);
 }
 
 static float cross2D(const glm::vec2& a, const glm::vec2& b)
@@ -90,7 +90,7 @@ static bool rayOccluded(const glm::vec3& origin, const glm::vec3& dir,
 }
 
 void StaticMesh::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                              const std::vector<Light>& lights)
+                              const std::vector<Light>& lights, float ambient)
 {
     glm::mat4 world = parentWorld * transform.matrix();
     glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(world)));
@@ -161,7 +161,7 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri
                 glm::vec3 worldPos = w0*wp0 + w1*wp1 + w2*wp2;
                 glm::vec3 worldNorm = glm::normalize(w0*wn0 + w1*wn1 + w2*wn2);
 
-                glm::vec3 lit(0.2f); // 0.2f magic ambient number for now
+                glm::vec3 lit(ambient);
 
                 for (const Light& light : lights)
                 {
@@ -234,11 +234,11 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri
     
     // pass parent world because not every object is a static mesh so
     // Object::CollectOccluders has to * transform.matrix() aswell.
-    Object::BakeLighting(parentWorld, occluders, lights);
+    Object::BakeLighting(parentWorld, occluders, lights, ambient);
 }
 
 bool bakeSceneLighting(const std::vector<Light>& lights,
-                       std::vector<Object*>& rootObjs)
+                       std::vector<Object*>& rootObjs, float ambient)
 {
     double start = glfwGetTime();
 
@@ -249,7 +249,7 @@ bool bakeSceneLighting(const std::vector<Light>& lights,
     std::cout << "baked " << occluders.size() << " occluder Tris"  << '\n';
 
     for (Object*& obj : rootObjs)
-        obj->BakeLighting(glm::mat4(1.0f), occluders, lights);
+        obj->BakeLighting(glm::mat4(1.0f), occluders, lights, ambient);
 
     double end = glfwGetTime();
     std::cout << "bake took " << (end - start) << "s\n";

@@ -55,12 +55,12 @@ int main()
     std::vector<Object*> rootObjs;
 
     StaticMesh gun = makeStaticObj(Transform{0.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-                       "assets/gun/gun.obj", "assets/gun/gun.png");
+            "assets/gun/gun.obj", "assets/gun/gun.png", false);
 
     rootObjs.push_back(&gun);
 
     StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.2f, 0.2f, 0.2f},
-                                    "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png");
+            "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true);
 
     rootObjs.push_back(&test);
 
@@ -74,7 +74,7 @@ int main()
     lights.push_back(Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
                            20.0f, 10.0f});
 
-    bakeSceneLighting(lights, rootObjs);
+    bakeSceneLighting(lights, rootObjs, 0.4f); // last arg is ambient light
 
     for (Object*& obj : rootObjs) obj->Upload();
     
