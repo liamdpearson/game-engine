@@ -10,6 +10,7 @@
 #include <map>
 
 
+// loops through mesh tris and adds up area
 static float getMeshArea(const std::vector<float>& verts,
                          const std::vector<unsigned int>& idx)
 {
@@ -29,6 +30,8 @@ static float getMeshArea(const std::vector<float>& verts,
     return area;
 }
 
+// uses xatlas to generate a second non overlapping 
+// uv mapping for a static meshes lightmap.
 static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
                    std::vector<unsigned int>& idx, float resolution)
 {
@@ -97,6 +100,7 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
     return true;
 }
 
+// loads obj file doesnt look at mtl yet
 static bool loadObj(const char* path, std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices)
 {
@@ -215,7 +219,7 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadPNGJPG(texPath, pixelated));
+    obj.setTexture(loadTexture(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
     obj.lightMode = 1;
 
@@ -236,7 +240,7 @@ Mesh makeObj(const Transform& transform, const char* objPath,
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
-    obj.setTexture(loadPNGJPG(texPath, pixelated));
+    obj.setTexture(loadTexture(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
 
     return obj;

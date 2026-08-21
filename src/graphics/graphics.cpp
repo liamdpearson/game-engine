@@ -105,7 +105,8 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
 }
 
-unsigned int compileShader(GLenum type, const char* src)
+// compiles glsl shader.
+static unsigned int compileShader(GLenum type, const char* src)
 {
     unsigned int shader = glCreateShader(type);
     glShaderSource(shader, 1, &src, NULL);
@@ -123,6 +124,7 @@ unsigned int compileShader(GLenum type, const char* src)
     return shader;
 }
 
+// links shaders to shader program.
 static unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc)
 {
     unsigned int vs = compileShader(GL_VERTEX_SHADER, vsSrc);
@@ -148,6 +150,7 @@ static unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc)
 
 }
 
+// builds shader program and sets locations for shader variables.
 void buildShaderProgram()
 {
     shaderProgram = linkShaderProgram(vertexShaderSource, fragmentShaderSource);
@@ -165,7 +168,8 @@ void buildShaderProgram()
     viewPosLoc = glGetUniformLocation(shaderProgram, "viewPos");
 }
 
-unsigned int loadPNGJPG(const char* src, bool pixelated, bool clampEdge)
+// uses stb to image files as textures.
+unsigned int loadTexture(const char* src, bool pixelated, bool clampEdge)
 {
     unsigned int texture;
     glGenTextures(1, &texture);
@@ -196,6 +200,7 @@ unsigned int loadPNGJPG(const char* src, bool pixelated, bool clampEdge)
     return texture;
 }
 
+// converts light map pixel rgb values to a texture.
 unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height)
 {
     unsigned int lightMap;
@@ -209,11 +214,12 @@ unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height)
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_FLOAT, pixels.data());
-    //glGenerateMipmap(GL_TEXTURE_2D);
 
     return lightMap;
 }
 
+// creates proj and view matrices for the camera and sends them to shader locations.
+// takes in cam as an argument so a scene can have multiple cameras.
 void configureCamera(const Camera& cam)
 {
     int frameBuffWidth, frameBuffHeight;
@@ -284,12 +290,16 @@ void Camera::Upload()
     Object::Upload();
 }
 
+// recursive part of the draw walk.
 void Object::Draw()
 {
     for (Object*& child : children)
         child->Draw();
 }
 
+// if object is a mesh this will run which sets objects world matrix so the 
+// meshes vertices get drawn in their correct places. also sets texture location
+// 0 which is the actual texture. then it calls Object::Draw() on itself.
 void Mesh::Draw()
 {
     glUniform1i(lightModeLoc, lightMode);
@@ -309,6 +319,8 @@ void Mesh::Draw()
     Object::Draw();
 }
 
+// if object is a static mesh this will run which sets texture location 1 which
+// is the static meshes light map. then it calls Mesh::Draw() on itself.
 void StaticMesh::Draw()
 {
     glActiveTexture(GL_TEXTURE1);
@@ -318,6 +330,7 @@ void StaticMesh::Draw()
     Mesh::Draw();
 }
 
+// recursive part of the compose walk.
 void Object::Compose()
 {
     for (Object*& child : children) {
@@ -326,6 +339,8 @@ void Object::Compose()
     }
 }
 
+// if object is a camera this will run instead of Object::Compose.
+// sets pos, front, up and then calls Object::Compose on itself.
 void Camera::Compose()
 {   
     glm::mat4 world = this->getWorld();
@@ -338,6 +353,7 @@ void Camera::Compose()
     Object::Compose();
 }
 
+// deletes VAO, VBO, EBO, and texture.
 Mesh::~Mesh()
 {
     glDeleteVertexArrays(1, &VAO);
@@ -346,6 +362,9 @@ Mesh::~Mesh()
     glDeleteTextures(1, &texture);
 }
 
+// just deletes light map. doesnt need to call Mesh::~Mesh
+// because destructors always run for parent classes unlike
+// regular overriden functions.
 StaticMesh::~StaticMesh()
 {
     glDeleteTextures(1, &lightMap);

@@ -43,8 +43,11 @@ struct Transform
 
 struct Tri{ glm::vec3 a, b, c; };
 
+// initialized here so compiler is happy when I declare BakeLighting.
+// see definition in lighting.h.
 struct Light;
 
+// A node in the scene hierarchy can be an empty node, a camera, a mesh or a static mesh.
 class Object
 {
     private:
@@ -71,6 +74,7 @@ class Object
         virtual ~Object() = default;
 };
 
+// dynamic mesh
 class Mesh : public Object
 {
     private:
@@ -103,6 +107,7 @@ class Mesh : public Object
         ~Mesh() override;
 };
 
+// static mesh that has its light map baked onto it in bakeSceneLighting.
 class StaticMesh : public Mesh
 {
     private:
@@ -126,6 +131,8 @@ class StaticMesh : public Mesh
         ~StaticMesh() override;
 };
 
+// camera node containing pos, front, and up needed for configureCamera.
+// pos, front, and up are set in Camera::Compose in graphics.cpp
 class Camera : public Object
 {
     private:
@@ -162,6 +169,7 @@ class Camera : public Object
         ~Camera() = default;
 };
 
+// define opengl thingies
 extern GLFWwindow* window;
 extern int SW, SH;
 
@@ -177,11 +185,9 @@ extern const char* fragmentShaderSource;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
-unsigned int compileShader(GLenum type, const char* src);
-
 void buildShaderProgram();
 
-unsigned int loadPNGJPG(const char* src, bool pixelated, bool clampEdge = false);
+unsigned int loadTexture(const char* src, bool pixelated, bool clampEdge = false);
 
 unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height);
 

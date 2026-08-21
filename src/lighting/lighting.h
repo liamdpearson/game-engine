@@ -7,6 +7,7 @@
 #include <vector>
 
 
+// scene light used only in lighting bake
 struct Light
 {
     glm::vec3 pos;
@@ -15,5 +16,5 @@ struct Light
     float radius;
 };
 
-bool bakeSceneLighting(const std::vector<Light>& lights,
+void bakeSceneLighting(const std::vector<Light>& lights,
                        std::vector<Object*>& rootObjs, float ambient);
