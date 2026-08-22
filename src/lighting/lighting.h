@@ -14,7 +14,9 @@ struct Light
     glm::vec3 color;
     float intensity;
     float radius;
+    float falloff;
 };
 
-void bakeSceneLighting(const std::vector<Light>& lights,
-                       std::vector<Object*>& rootObjs, float ambient);
+glm::vec3 sampleLightAt(const glm::vec3& p);
+
+void bakeSceneLighting();

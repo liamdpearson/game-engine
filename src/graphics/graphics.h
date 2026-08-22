@@ -65,8 +65,7 @@ class Object
         virtual void Compose();
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
-        virtual void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                                  const std::vector<Light>& lights, float ambient);
+        virtual void BakeLighting(const glm::mat4 parentWorld);
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
@@ -86,7 +85,6 @@ class Mesh : public Object
         unsigned int VAO = 0, VBO = 0, EBO = 0;
 
     public:
-        int lightMode = 0;
         Mesh() = default;
 
         void Upload() override;
@@ -104,6 +102,15 @@ class Mesh : public Object
         void setIndexCount(const GLsizei& ic) { this->indexCount = ic; }
         GLsizei getIndexCount() const { return this->indexCount; }
 
+        //void setVAO(unsigned int vao) { this->VAO = vao; }
+        unsigned int getVAO() const { return this->VAO; }
+
+        //void setVBO(unsigned int vbo) { this->VBO = vbo; }
+        unsigned int getVBO() const { return this->VBO; }
+
+        //void setEBO(unsigned int ebo) { this->EBO = ebo; }
+        unsigned int getEBO() const { return this->EBO; }
+
         ~Mesh() override;
 };
 
@@ -119,8 +126,7 @@ class StaticMesh : public Mesh
 
         void Draw() override;
         void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
-        void BakeLighting(const glm::mat4 parentWorld, const std::vector<Tri>& occluders,
-                          const std::vector<Light>& lights, float ambient);
+        void BakeLighting(const glm::mat4 parentWorld);
 
         void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
         unsigned int getLightMap() const { return this->lightMap; }
@@ -169,7 +175,25 @@ class Camera : public Object
         ~Camera() = default;
 };
 
-// define opengl thingies
+// define scene variables
+extern std::vector<Object*> rootObjs;
+
+// lighting stuff
+extern std::vector<Light*> lights;
+extern float ambient;
+extern std::vector<Tri> occluders;
+extern std::vector<glm::vec3> lightGrid;
+
+// for finding the bounds box of the scene for light grid
+extern float minX;
+extern float maxX;
+extern float minY;
+extern float maxY;
+extern float minZ;
+extern float maxZ;
+
+
+// define opengl variables
 extern GLFWwindow* window;
 extern int SW, SH;
 
@@ -178,7 +202,7 @@ extern float deltaTime, lastFrame, currentFrame;
 extern unsigned int shaderProgram;
 
 extern int modelLoc, projectionLoc, viewLoc, normalMatLoc;
-extern int texLoc, lightMapLoc, lightModeLoc, viewPosLoc;
+extern int texLoc, lightMapLoc, lightModeLoc, lightDirLoc, objectLightLoc;
 
 extern const char* vertexShaderSource;
 extern const char* fragmentShaderSource;

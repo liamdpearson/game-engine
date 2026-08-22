@@ -12,7 +12,7 @@ CXX      := g++
 WARNINGS := -Wall -Wextra
 CPPFLAGS := -Ithird_party/glad/include -Ithird_party/glfw/include -Ithird_party
 CFLAGS    = $(WARNINGS) -O2 -MMD -MP
-CXXFLAGS  = $(WARNINGS) -O2 -MMD -MP
+CXXFLAGS  = $(WARNINGS) -O2 -MMD -MP -std=c++17
 LDFLAGS  := -Lthird_party/glfw/lib
 LDLIBS   := -lglfw3 -lopengl32 -lgdi32
 

@@ -52,12 +52,6 @@ int main()
     
 
     // define objects
-    std::vector<Object*> rootObjs;
-
-    StaticMesh gun = makeStaticObj(Transform{0.0f, 2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-            "assets/gun/gun.obj", "assets/gun/gun.png", false);
-
-    rootObjs.push_back(&gun);
 
     StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.2f, 0.2f, 0.2f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true);
@@ -68,13 +62,18 @@ int main()
                   glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
 
     rootObjs.push_back(&camera);
+
+    Mesh gun = makeObj(Transform{0.0f, 0.0f, -2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+            "assets/gun/gun.obj", "assets/gun/gun.png", false);
+
+    camera.children.push_back(&gun);
     
-    std::vector<Light> lights;
+    // define lights
+    Light light = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
+                           20.0f, 10.0f, 3.0f};
+    lights.push_back(&light);
 
-    lights.push_back(Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
-                           20.0f, 10.0f});
-
-    bakeSceneLighting(lights, rootObjs, 0.4f); // last arg is ambient light
+    bakeSceneLighting();
 
     for (Object*& obj : rootObjs) obj->Upload();
     
@@ -129,9 +128,9 @@ int main()
         camera.transform.y += moveDir.y * deltaTime;
         camera.transform.z += moveDir.z * deltaTime;
 
-        // gun.transform.yaw += 0.1f;
-        // gun.transform.pitch += 0.1f;
-        // gun.transform.roll += 0.1f;
+        gun.transform.yaw += 0.1f;
+        gun.transform.pitch += 0.1f;
+        gun.transform.roll += 0.1f;
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;

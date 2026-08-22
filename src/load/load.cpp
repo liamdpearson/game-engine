@@ -221,7 +221,6 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     obj.setIndices(idx);
     obj.setTexture(loadTexture(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
-    obj.lightMode = 1;
 
     obj.setAtlas(atlas);
     
