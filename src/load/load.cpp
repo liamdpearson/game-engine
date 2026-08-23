@@ -199,7 +199,7 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
 }
 
 StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
-                         const char* texPath, bool pixelated)
+                         const char* texPath, bool pixelated, bool collides)
 {   
     StaticMesh obj;
 
@@ -212,7 +212,7 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     float scaledArea = (transform.scaleX * transform.scaleY +
                         transform.scaleX * transform.scaleZ +
                         transform.scaleY * transform.scaleZ) * ogArea;
-    float resolution = std::sqrt(scaledArea * 64 * 64);
+    float resolution = std::sqrt(scaledArea * 64 * 64) * 0.1f;
     GenUV2(atlas, verts, idx, resolution);
     
 
@@ -223,6 +223,7 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     obj.setIndexCount((GLsizei)idx.size());
 
     obj.setAtlas(atlas);
+    obj.setCollides(collides);
     
     return obj;
 }

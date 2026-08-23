@@ -43,6 +43,27 @@ struct Transform
 
 struct Tri{ glm::vec3 a, b, c; };
 
+struct AABB
+{
+    glm::vec3 min{0.0f};
+    glm::vec3 max{0.0f};
+
+    bool overlaps(const AABB& other) const
+    {
+        return min.x <= other.max.x && max.x >= other.min.x
+            && min.y <= other.max.y && max.y >= other.min.y
+            && min.z <= other.max.z && max.z >= other.min.z;
+    }
+
+    void expand(float margin)
+    {
+        min -= glm::vec3(margin);
+        max += glm::vec3(margin);
+    }
+};
+
+struct TriAABB : Tri { AABB aabb; };
+
 // initialized here so compiler is happy when I declare BakeLighting.
 // see definition in lighting.h.
 struct Light;
@@ -65,6 +86,7 @@ class Object
         virtual void Compose();
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
+        virtual void CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out);
         virtual void BakeLighting(const glm::mat4 parentWorld);
 
         void setWorld(const glm::mat4& world) { this->world = world; }
@@ -120,12 +142,14 @@ class StaticMesh : public Mesh
     private:
         unsigned int lightMap = 0;
         xatlas::Atlas* atlas = nullptr;
+        bool collides = false;
 
     public:
         StaticMesh() = default;
 
         void Draw() override;
         void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
+        void CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out);
         void BakeLighting(const glm::mat4 parentWorld);
 
         void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
@@ -133,6 +157,9 @@ class StaticMesh : public Mesh
         
         void setAtlas(xatlas::Atlas*& at) { this->atlas = at; }
         xatlas::Atlas* getAtlas() const { return this->atlas; }
+
+        void setCollides(bool c) { this->collides = c; }
+        bool getCollides() const { return this->collides; }
     
         ~StaticMesh() override;
 };
@@ -175,6 +202,24 @@ class Camera : public Object
         ~Camera() = default;
 };
 
+class Player : public Object
+{
+    public:
+        float height = 1.8f; // capsule height
+        float radius = 0.3f; // capsule width
+        glm::vec3 velocity;
+
+        Player() = default;
+
+        Player(const Transform t,
+               const float height, const float radius)
+        : height(height), radius(radius) {
+            transform = t;
+        }
+
+        ~Player() = default;
+};
+
 // define scene variables
 extern std::vector<Object*> rootObjs;
 
@@ -182,7 +227,7 @@ extern std::vector<Object*> rootObjs;
 extern std::vector<Light*> lights;
 extern float ambient;
 extern std::vector<Tri> occluders;
-extern std::vector<glm::vec3> lightGrid;
+extern std::vector<std::pair<glm::vec3, glm::vec3>> lightGrid;
 
 // for finding the bounds box of the scene for light grid
 extern float minX;
@@ -192,6 +237,8 @@ extern float maxY;
 extern float minZ;
 extern float maxZ;
 
+// collision stuff
+extern std::vector<TriAABB> colliders;
 
 // define opengl variables
 extern GLFWwindow* window;

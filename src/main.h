@@ -2,6 +2,8 @@
 
 #include "graphics/graphics.h"
 #include "load/load.h"
+#include "lighting/lighting.h"
+#include "collisions/collisions.h"
 
 #include <algorithm>
 

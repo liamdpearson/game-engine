@@ -1,6 +1,9 @@
 #include "main.h"
 
+#include "graphics/graphics.h"
+#include "load/load.h"
 #include "lighting/lighting.h"
+#include "collisions/collisions.h"
 
 #include <iostream>
 
@@ -53,27 +56,33 @@ int main()
 
     // define objects
 
-    StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.2f, 0.2f, 0.2f},
-            "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true);
+    StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f},
+            "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
 
     rootObjs.push_back(&test);
 
-    Camera camera{90.0f, glm::vec3(0.0f, 0.0f, 3.0f),
+    Player player = Player{Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+                           1.8f, 0.3f};
+
+    rootObjs.push_back(&player);
+
+    Camera camera{90.0f, glm::vec3(0.0f, player.height - player.radius, 0.0f),
                   glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
 
-    rootObjs.push_back(&camera);
+    player.children.push_back(&camera);
 
-    Mesh gun = makeObj(Transform{0.0f, 0.0f, -2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    Mesh gun = makeObj(Transform{0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/gun/gun.obj", "assets/gun/gun.png", false);
 
     camera.children.push_back(&gun);
     
     // define lights
     Light light = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
-                           20.0f, 10.0f, 3.0f};
+                        20.0f, 20.0f, 3.0f};
     lights.push_back(&light);
 
     bakeSceneLighting();
+    collectSceneColliders();
 
     for (Object*& obj : rootObjs) obj->Upload();
     
@@ -87,8 +96,9 @@ int main()
         lastFrame = currentFrame;
 
         // update here
-        camera.transform.yaw -= xoff * 0.05;
+        player.transform.yaw -= xoff * 0.05;
         camera.transform.pitch -= yoff * 0.05;
+        camera.transform.pitch = std::clamp(camera.transform.pitch, -89.0f, 89.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
@@ -97,9 +107,9 @@ int main()
         glm::vec3 moveDir = glm::vec3(0.0f);
 
         glm::vec3 right = glm::vec3(
-            -sin(glm::radians(camera.transform.yaw + 90.0f)),
+            -sin(glm::radians(player.transform.yaw + 90.0f)),
             0.0f,
-            -cos(glm::radians(camera.transform.yaw + 90.0f))
+            -cos(glm::radians(player.transform.yaw + 90.0f))
         );
         
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -124,29 +134,29 @@ int main()
         if (glm::length(moveDir) > 0.0f)
             moveDir = glm::normalize(moveDir);
         
-        camera.transform.x += moveDir.x * deltaTime;
-        camera.transform.y += moveDir.y * deltaTime;
-        camera.transform.z += moveDir.z * deltaTime;
+        player.transform.x += moveDir.x * deltaTime;
+        player.transform.y += moveDir.y * deltaTime;
+        player.transform.z += moveDir.z * deltaTime;
 
-        gun.transform.yaw += 0.1f;
-        gun.transform.pitch += 0.1f;
-        gun.transform.roll += 0.1f;
+        resolvePlayerCollision(player, colliders);
+
+        
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
         keys_pressed = {}; keys_released = {};
         mouse_buttons_pressed = {}; mouse_buttons_released = {};
 
+        for (Object*& obj : rootObjs) {
+            obj->setWorld(obj->transform.matrix());
+            obj->Compose();
+        }
+
         // render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(shaderProgram);
         configureCamera(camera);
-
-        for (Object*& obj : rootObjs) {
-            obj->setWorld(obj->transform.matrix());
-            obj->Compose();
-        }
 
         for (Object*& obj : rootObjs) obj->Draw();
         glBindVertexArray(0);
