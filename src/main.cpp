@@ -55,10 +55,11 @@ int main()
 
     // define objects
 
-    Mesh knight = makeObj(Transform{0.0f, 5.0f, 2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    AnimatedMesh shotgun = makeAnimatedObj(Transform{0.0f, 5.0f, 2.0f, 90.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/knight/knight.fbx", "assets/knight/knight.png", true);
-        
-    rootObjs.push_back(&knight);
+    
+    shotgun.SetAnimation(1);
+    rootObjs.push_back(&shotgun);    
 
     StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
@@ -175,9 +176,6 @@ int main()
         }
 
         player.grounded = groundedAny;
-
-
-        knight.transform.yaw += 0.1;
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;

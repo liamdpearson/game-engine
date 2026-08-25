@@ -13,7 +13,11 @@
 #include <vector>
 #include <string>
 
+
 const int VERTEX_FLOATS = 15;
+// maximum bones because I store bone indices as a single
+// unsigned int so each bone las to be less than 8 bits.
+const int MAX_BONES = 128;
 
 struct Transform
 {
@@ -166,7 +170,7 @@ class StaticMesh : public Mesh
         ~StaticMesh() override;
 };
 
-// all vectors are of the same length bone has one of each
+// all vectors are of the same length bone owns each at its index
 struct Skeleton
 {
     std::vector<glm::mat4> inverseBind;
@@ -204,7 +208,22 @@ class AnimatedMesh : public Mesh
         Skeleton skeleton;
 
     public:
+        std::vector<Animation> animations; // all clips baked from fbx
+        int currentAnim = -1;  // current animation index
+        float animTime = 0.0f; // seconds into current clip
+        int nextAnim = -1;     // animation set to play after current one done
+
+        std::vector<BonePose> lastPose;
+        std::vector<BonePose> blendFrom;
+        float blendDuration = 0.0f;
+        float blendElapsed = 0.0f;
+
         AnimatedMesh() = default;
+
+        void Draw() override;
+
+        void SetAnimation(int index, float blendTime = 0.0f, int nextAnim = -1);
+        void SetAnimation(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
 
         void setSkeleton(const Skeleton& skel) { this->skeleton = skel; }
         Skeleton getSkeleton() const { return this->skeleton; }
@@ -296,7 +315,7 @@ extern float deltaTime, lastFrame, currentFrame;
 
 extern unsigned int shaderProgram;
 
-extern int modelLoc, projectionLoc, viewLoc, normalMatLoc;
+extern int modelLoc, projectionLoc, viewLoc, normalMatLoc, boneMatricesLoc;
 extern int texLoc, lightMapLoc, lightModeLoc, lightDirLoc, objectLightLoc;
 
 extern const char* vertexShaderSource;

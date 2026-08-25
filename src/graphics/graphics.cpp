@@ -26,7 +26,7 @@ float deltaTime, lastFrame, currentFrame;
 
 unsigned int shaderProgram;
 
-int modelLoc, projectionLoc, viewLoc, normalMatLoc;
+int modelLoc, projectionLoc, viewLoc, normalMatLoc, boneMatricesLoc;
 int texLoc, lightMapLoc, lightModeLoc, lightDirLoc, objectLightLoc;
 
 const char* vertexShaderSource = R"glsl(
@@ -38,7 +38,7 @@ layout (location = 3) in vec2 aLightMapCoord;
 layout (location = 4) in uint aBoneIndices;
 layout (location = 5) in vec4 aBoneWeights;
 
-const int MAX_BONES = 256;
+const int MAX_BONES = 128;
 
 out vec2 TexCoord;
 out vec3 Normal;
@@ -49,25 +49,26 @@ uniform mat4 model;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat3 normalMat;
-// uniform mat4 boneMatrices[MAX_BONES];
+uniform mat4 boneMatrices[MAX_BONES];
 
 void main()
 {
     float total = aBoneWeights.x + aBoneWeights.y + aBoneWeights.z + aBoneWeights.w;
 
     vec4 pos;
+    mat4 skin = mat4(1.0);
     if (total > 0.0001) {
-        // uint b0 = (aBoneIndices >> 24) & 0xFFu;
-        // uint b1 = (aBoneIndices >> 16) & 0xFFu;
-        // uint b2 = (aBoneIndices >>  8) & 0xFFu;
-        // uint b3 =  aBoneIndices        & 0xFFu;
+        uint b0 = (aBoneIndices >> 24) & 0xFFu;
+        uint b1 = (aBoneIndices >> 16) & 0xFFu;
+        uint b2 = (aBoneIndices >>  8) & 0xFFu;
+        uint b3 =  aBoneIndices        & 0xFFu;
 
-        // mat4 skin = 
-        //     aBoneWeights.x * boneMatrices[b0] +
-        //     aBoneWeights.y * boneMatrices[b1] +
-        //     aBoneWeights.z * boneMatrices[b2] +
-        //     aBoneWeights.w * boneMatrices[b3];
-        // pos = skin * vec4(aPos, 1.0);
+        skin = 
+            aBoneWeights.x * boneMatrices[int(b0)] +
+            aBoneWeights.y * boneMatrices[int(b1)] +
+            aBoneWeights.z * boneMatrices[int(b2)] +
+            aBoneWeights.w * boneMatrices[int(b3)];
+        pos = skin * vec4(aPos, 1.0);
 
     } else {
         pos = vec4(aPos, 1.0);
@@ -76,7 +77,7 @@ void main()
     gl_Position = projection * view * model * pos;
     TexCoord = aTexCoord;
     LightMapCoord = aLightMapCoord;
-    Normal = normalMat * aNormal;
+    Normal = normalMat * mat3(skin) * aNormal;
     FragPos = vec3(model * pos);
 }
 )glsl";
@@ -103,9 +104,9 @@ void main()
     if (lightMode == 0)
     {
         vec3 n = normalize(Normal);
-        vec3 lightDir = normalize(vec3(lightDir));
+        vec3 L = normalize(vec3(lightDir));
 
-        vec3 diff = max(dot(n, lightDir), 0.0) * objectLight;
+        vec3 diff = max(dot(n, L), 0.0) * objectLight;
 
         lit = objectLight * 0.5f + diff * 0.5f;
     }
@@ -134,11 +135,11 @@ static unsigned int compileShader(GLenum type, const char* src)
     glCompileShader(shader);
 
     int success;
-    char infoLog[512];
+    char infoLog[1024] = {};
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success)
     {
-        glGetShaderInfoLog(shader, 512, NULL, infoLog);
+        glGetShaderInfoLog(shader, sizeof(infoLog), NULL, infoLog);
         std::cout << "ERROR::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
 
@@ -157,11 +158,13 @@ static unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc)
     glLinkProgram(sp);
 
     int success;
-    char infoLog[512];
+    char infoLog[1024] = {};
     glGetProgramiv(sp, GL_LINK_STATUS, &success);
     if (!success)
     {
-        glGetShaderInfoLog(sp, 512, NULL, infoLog);
+        // sp is a program name, so glGetShaderInfoLog raises GL_INVALID_OPERATION and
+        // leaves infoLog untouched -- must be glGetProgramInfoLog.
+        glGetProgramInfoLog(sp, sizeof(infoLog), NULL, infoLog);
         std::cout << "ERROR::SHADER::PROGRAM::LINK_FAILED\n" << infoLog << std::endl;
     }
 
@@ -177,10 +180,11 @@ void buildShaderProgram()
     shaderProgram = linkShaderProgram(vertexShaderSource, fragmentShaderSource);
 
     // vert shader uniforms
-    modelLoc      = glGetUniformLocation(shaderProgram, "model");
-    projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    viewLoc       = glGetUniformLocation(shaderProgram, "view");
-    normalMatLoc  = glGetUniformLocation(shaderProgram, "normalMat");
+    modelLoc        = glGetUniformLocation(shaderProgram, "model");
+    projectionLoc   = glGetUniformLocation(shaderProgram, "projection");
+    viewLoc         = glGetUniformLocation(shaderProgram, "view");
+    normalMatLoc    = glGetUniformLocation(shaderProgram, "normalMat");
+    boneMatricesLoc = glGetUniformLocation(shaderProgram, "boneMatrices");
 
     // frag shader uniforms
     texLoc = glGetUniformLocation(shaderProgram, "tex");
@@ -446,6 +450,176 @@ void StaticMesh::Draw()
     glDrawElements(GL_TRIANGLES, this->getIndexCount(), GL_UNSIGNED_INT, 0);
 
     Object::Draw();
+}
+
+// calculates the pose of each bone given the values at each frame and time
+static void sampleClip(const Animation& anim, float t, std::vector<BonePose>& out)
+{
+    // calc which two frames to blend and by how much
+    float dur = anim.duration > 0.0f ? anim.duration : 1.0f;
+    float wrapped = std::fmod(t, dur); // wraps t to between 0 and dur
+    if (wrapped < 0.0f) wrapped += dur;
+    float frameF = wrapped * anim.fps;
+    int   f0 = (int)std::floor(frameF) % anim.frameCount; // last frame
+    int   f1 = (f0 + 1) % anim.frameCount; // next frame
+    float a = frameF - std::floor(frameF); // gets percentage between last and next
+
+    int n = (int)std::min(out.size(), anim.tracks.size());
+    for (int b = 0; b < n; ++b)
+    {
+        const BoneTrack& tr = anim.tracks[b];
+        out[b].pos = glm::mix(tr.pos[f0], tr.pos[f1], a);
+        out[b].rot = glm::slerp(tr.rot[f0], tr.rot[f1], a);
+        out[b].scale = glm::mix(tr.scale[f0], tr.scale[f1], a);
+    }
+}
+
+// fills palette with each bone's skinning matrix, doesn't take
+// AnimatedMesh by const ref because it needs to set its lastPose
+static void computePose(AnimatedMesh& obj, std::vector<glm::mat4>& palette)
+{
+    const Skeleton& sk = obj.getSkeleton();
+    int n = sk.inverseBind.size();
+    palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
+    if (n == 0 || obj.currentAnim < 0 || obj.currentAnim >= obj.animations.size())
+        return;
+    const Animation& anim = obj.animations[obj.currentAnim];
+    if (anim.frameCount == 0) return;
+
+    // sample clip and get each bone's pose
+    std::vector<BonePose> pose(n);
+    sampleClip(anim, obj.animTime, pose);
+
+    if (obj.blendDuration > 0.0f && (int)obj.blendFrom.size() == n)
+    {
+        float along = std::clamp(obj.blendElapsed / obj.blendDuration, 0.0f, 1.0f);
+        for (int b = 0; b < n; ++b)
+        {
+            pose[b].pos = glm::mix(obj.blendFrom[b].pos, pose[b].pos, along);
+            pose[b].rot = glm::slerp(obj.blendFrom[b].rot, pose[b].rot, along);
+            pose[b].scale = glm::mix(obj.blendFrom[b].scale, pose[b].scale, along);
+        }
+        if (along >= 1.0f) // fade finished
+        {
+            obj.blendDuration = 0.0f;
+            obj.blendElapsed = 0.0f;
+            obj.blendFrom.clear();
+        }
+    }
+
+    // remember what last went on screen so switching clips
+    // mid blend starts from the pose the eye last saw.
+    obj.lastPose = pose;
+
+    // now we convert from local pos, rot, scale to local matrix
+    std::vector<glm::mat4> local(n);
+    for (int b = 0; b < n; ++b)
+    {
+        local[b] = glm::translate(glm::mat4(1.0f), pose[b].pos)
+                 * glm::mat4_cast(pose[b].rot)
+                 * glm::scale(glm::mat4(1.0f), pose[b].scale);
+    }
+
+    // now walk bone hierarchy and create world matrices
+    std::vector<glm::mat4> world(n);
+    std::vector<char> done(n, 0);
+    int remaining = n;
+    while (remaining > 0)
+    {
+        int progressed = 0;
+        for (int b = 0; b < n; ++b)
+        {
+            if (done[b]) continue;
+            int par = sk.parent[b];
+            if (par < 0) // root bone
+            {
+                world[b] = sk.parentWorld[b] * local[b];
+                done[b] = 1;
+                remaining--;
+                progressed = 1;
+            }
+            else if (done[par]) // seen parent already
+            {
+                world[b] = world[par] * local[b];
+                done[b] = 1;
+                remaining--;
+                progressed = 1;
+            }   
+        }
+        if (!progressed) break; // guards against broken parent chain
+    }
+
+    // palette = animated world * invbind
+    for (int b = 0; b < n; ++b) palette[b] = world[b] * sk.inverseBind[b];
+}
+
+// if object is an animated mesh this will run.
+void AnimatedMesh::Draw()
+{
+    glUniform1i(lightModeLoc, 0);
+
+    glm::mat4 w = this->getWorld();
+    glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(w)));
+    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(w));
+    glUniformMatrix3fv(normalMatLoc, 1, GL_FALSE, glm::value_ptr(normalMat));
+
+    std::pair<glm::vec3, glm::vec3> litAndDir = gridLightAt(glm::vec3(w[3][0], w[3][1], w[3][2]));
+    glUniform3fv(objectLightLoc, 1, glm::value_ptr(litAndDir.first));
+    glUniform3fv(lightDirLoc,    1, glm::value_ptr(litAndDir.second));
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, this->getTexture());
+    glUniform1i(texLoc, 0);
+
+    this->animTime += deltaTime;
+    if (this->nextAnim != -1) {
+        if (this->animations[this->currentAnim].duration - this->animTime <= 0) // if cur anim done
+            { this->SetAnimation(this->nextAnim, 0.5f); this->nextAnim = -1; }
+    }
+    if (this->blendDuration > 0.0f) blendElapsed += deltaTime;
+    std::vector<glm::mat4> palette;
+    computePose(*this, palette);
+    GLsizei count = (GLsizei)std::min((size_t)MAX_BONES, palette.size());
+    glUniformMatrix4fv(boneMatricesLoc, count, GL_FALSE, glm::value_ptr(palette[0]));
+
+    glBindVertexArray(this->getVAO());
+    glDrawElements(GL_TRIANGLES, this->getIndexCount(), GL_UNSIGNED_INT, 0);
+
+    Object::Draw();
+}
+
+void AnimatedMesh::SetAnimation(int index, float blendTime, int nextAnim)
+{
+    if (index < 0 || index >= animations.size()) return;
+    
+    // blend from the pose on screen if animation is already running
+    if (blendTime > 0.0f && !lastPose.empty())
+    {
+        blendFrom = lastPose;
+        blendDuration = blendTime;
+        blendElapsed = 0.0f;
+    }
+    else
+    {
+        blendFrom.clear();
+        blendDuration = 0.0f;
+        blendElapsed = 0.0f;
+    }
+
+    currentAnim = index;
+    animTime = 0.0f;
+    this->nextAnim = nextAnim;
+}
+
+void AnimatedMesh::SetAnimation(const std::string& name, float blendTime, int nextAnim)
+{
+    for (int i = 0; i < animations.size(); ++i)
+    {
+        if (animations[i].name == name)
+        {
+            SetAnimation(i, blendTime, nextAnim);
+        }
+    }
 }
 
 // recursive part of the compose walk.

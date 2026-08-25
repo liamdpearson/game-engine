@@ -13,8 +13,6 @@
 #include <map>
 
 
-const int MAX_BONES = 256;
-
 // loops through mesh tris and adds up area
 static float getMeshArea(const std::vector<float>& verts,
                          const std::vector<unsigned int>& idx)
@@ -91,7 +89,7 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
         // uv2
         finalVerts.push_back(xatlasVert.uv[0] / static_cast<float>(atlas->width));
         finalVerts.push_back(xatlasVert.uv[1] / static_cast<float>(atlas->height));
-        // anim data, carried through the repack untouched
+        // anim data
         finalVerts.push_back(verts[ogVertIdx + 10]);
         finalVerts.push_back(verts[ogVertIdx + 11]);
         finalVerts.push_back(verts[ogVertIdx + 12]);
@@ -135,6 +133,7 @@ static void loadFbxUnanimated(const char* path, std::vector<float>& outVerts,
         if (!mesh) continue;
 
         ufbx_matrix geomToWorld = node->geometry_to_world;
+        ufbx_matrix geomToWorldNormals = ufbx_matrix_for_normals(&geomToWorld);
         std::vector<unsigned int> tri(mesh->max_face_triangles * 3);
 
         for (size_t fi = 0; fi < mesh->faces.count; ++fi)
@@ -153,7 +152,7 @@ static void loadFbxUnanimated(const char* path, std::vector<float>& outVerts,
                 ufbx_vec3 n = mesh->vertex_normal.exists
                     ? ufbx_get_vertex_vec3(&mesh->vertex_normal, corner)
                     : ufbx_vec3{0.0f, 0.0f, 1.0f};
-                n = ufbx_transform_direction(&geomToWorld, n);
+                n = ufbx_transform_direction(&geomToWorldNormals, n);
 
                 outIndices.push_back((unsigned int)(outVerts.size() / VERTEX_FLOATS));
                 outVerts.push_back((float)p.x);
@@ -392,6 +391,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
         return;
     }
 
+    // map of bone nodes to their indices
     std::map<ufbx_node*, int> boneMap;
     std::vector<ufbx_node*> boneNodes;
 
@@ -402,6 +402,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
         if (!mesh) continue;
 
         ufbx_matrix geomToWorld = node->geometry_to_world;
+        ufbx_matrix geomToWorldNormals = ufbx_matrix_for_normals(&geomToWorld);
         std::vector<unsigned int> tri(mesh->max_face_triangles * 3);
 
         ufbx_skin_deformer* skin = 
@@ -409,6 +410,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
         std::vector<int> clusterToBone;
         if (skin)
         {
+            // loops through bones and sets up skeleton
             clusterToBone.resize(skin->clusters.count);
             for (size_t c = 0; c < skin->clusters.count; ++c)
             {
@@ -421,7 +423,8 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
                 } else {
                     bi = (int)outSkel.inverseBind.size();
                     boneMap[boneNode] = bi;
-
+                    
+                    // InvBind = GeomToBone * WorldToGeom (gets positions in bone space)
                     outSkel.inverseBind.push_back(ufbxToGlm(cl->geometry_to_bone) * 
                                                   glm::inverse(ufbxToGlm(geomToWorld)));
                     outSkel.parentWorld.push_back(boneNode->parent
@@ -429,11 +432,13 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
                                                   : glm::mat4(1.0f));
                     outSkel.names.push_back(boneNode ? std::string(boneNode->name.data) : "");
                     outSkel.parent.push_back(-1);
+                    boneNodes.push_back(boneNode);
                 }
                 clusterToBone[c] = bi;
             }
         }
 
+        // loops through mesh vertices and sets their perma values
         for (size_t fi = 0; fi < mesh->faces.count; ++fi)
         {
             ufbx_face face = mesh->faces[fi];
@@ -450,7 +455,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
                 ufbx_vec3 n = mesh->vertex_normal.exists
                     ? ufbx_get_vertex_vec3(&mesh->vertex_normal, corner)
                     : ufbx_vec3{0.0f, 0.0f, 1.0f};
-                n = ufbx_transform_direction(&geomToWorld, n);
+                n = ufbx_transform_direction(&geomToWorldNormals, n);
 
                 uint32_t bi[4] = {0,0,0,0};
                 float bw[4] = {0,0,0,0};
@@ -491,6 +496,8 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
         }
     }
 
+    // loops through bone map and sets each bones parent
+    // now that all bones have been processed once already.
     for (auto& bone : boneMap)
     {
         ufbx_node* boneNode = bone.first;
@@ -502,6 +509,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
         }
     }
 
+    // gets pos, rot, and scale of each bone during each frame of each animation.
     for (size_t si = 0; si < scene->anim_stacks.count && !boneNodes.empty(); ++si)
     {
         ufbx_anim_stack* stack = scene->anim_stacks.data[si];
@@ -541,7 +549,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
             }
         }
         std::cout << "Baked clip " << out.name << " frames: " 
-                  << out.frameCount << " duration: " << out.duration;
+                  << out.frameCount << " duration: " << out.duration << std::endl;
         outAnims.push_back(out);
     }
     ufbx_free_scene(scene);
@@ -577,6 +585,7 @@ AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
     obj.setIndexCount((GLsizei)idx.size());
 
     obj.setSkeleton(skel);
+    obj.animations = anims;
 
     return obj;
 }
