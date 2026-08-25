@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+
 std::vector<TriAABB> colliders;
 
 // CLAUDE GENERATED FUNCTION
@@ -43,28 +44,27 @@ static glm::vec3 closestPointOnTriangle(const glm::vec3& p, const Tri& t)
     return t.a + ab * (vb * denom) + ac * (vc * denom);
 }
 
-// CLAUDE GENERATED FUNCTION
-// Closest point to `p` on the segment ab.  EX:           p
-//                                          EX:        <-------a---------b------>
-//
-//                                      RESULT:        <-------p---------b------>
 static glm::vec3 closestPointOnSegment(const glm::vec3& p,
                                        const glm::vec3& a, const glm::vec3& b)
 {
     glm::vec3 ab = b - a;
-    float len2 = glm::dot(ab, ab);
-    if (len2 < 1e-12f) return a;   // degenerate segment: both ends are the same point
+    float abLenSq = glm::dot(ab, ab);
+    if (abLenSq < 1e-12f) return a; // degenerate segment
 
-    return a + ab * glm::clamp(glm::dot(p - a, ab) / len2, 0.0f, 1.0f);
+    glm::vec3 ap = p - a;
+    // projects ap onto ab but clamps the amount of ab between 0 and 1 and adds that to a
+    return a + ab * glm::clamp(glm::dot(ap, ab) / abLenSq, 0.0f, 1.0f);
 }
+
+static const float GROUND_NORMAL_Y = 0.7f;
 
 void resolvePlayerCollision(Player& player, const std::vector<TriAABB>& colliders)
 {
     const float radiusSq = player.radius * player.radius;
-
+    player.grounded = false;
     // adjust multiple times per frame so if an adjustment pushes capsule into a
     // wall or something then it will fix itself before the player sees anything.
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 4; i++)
     {
         // rebuild the player box for every adjustment
         glm::vec3 feet(player.transform.x, player.transform.y, player.transform.z);
@@ -86,6 +86,7 @@ void resolvePlayerCollision(Player& player, const std::vector<TriAABB>& collider
             // doesnt sqrt until after the degen check for slight optimization.
             glm::vec3 faceNormal = rawNormal / glm::sqrt(normalLenSq);
 
+            glm::vec3 feet(player.transform.x, player.transform.y, player.transform.z);
             glm::vec3 base = feet + glm::vec3(0.0f, player.radius, 0.0f);
             glm::vec3 tip  = feet + glm::vec3(0.0f, player.height - player.radius, 0.0f);
             if (tip.y < base.y) tip = base; // degenerate to a sphere if capsule is wider than tall
@@ -99,13 +100,12 @@ void resolvePlayerCollision(Player& player, const std::vector<TriAABB>& collider
             glm::vec3 reference;
             if (glm::abs(denom) < 1e-6f)
                 reference = t.a; // axis parallel : any point serves
-            else {
+            else
                 // gets closest point on segment to triangles plane
                 reference = base + axis * glm::clamp(glm::dot(faceNormal, t.a-base) / denom,
                                                      0.0f, 1.0f);
                 
-                reference = closestPointOnTriangle(reference, t);
-            }
+            reference = closestPointOnTriangle(reference, t);
 
             // center is the closest point on the segment.
             glm::vec3 center = closestPointOnSegment(reference, base, tip);
@@ -131,8 +131,19 @@ void resolvePlayerCollision(Player& player, const std::vector<TriAABB>& collider
             }
 
             player.transform.y += pushDir.y * depth;
-            player.transform.x += pushDir.x * depth;
-            player.transform.z += pushDir.z * depth;
+
+            if (pushDir.y > GROUND_NORMAL_Y) {
+                player.grounded = true;
+                // only cancel the component of motion heading straight down into the surface
+                player.velocity.y -= pushDir.y * glm::min(0.0f, player.velocity.y * pushDir.y);
+            } else {
+                // only push player on x and z if its not a ground tri
+                player.transform.x += pushDir.x * depth;
+                player.transform.z += pushDir.z * depth;
+
+                // cancel the component of motion heading into the surface
+                player.velocity -= pushDir * glm::min(0.0f, glm::dot(player.velocity, pushDir));
+            }
 
             hitAny = true;
         }
@@ -183,3 +194,8 @@ void collectSceneColliders()
 {
     for (Object*& obj : rootObjs) obj->CollectColliders(glm::mat4(1.0f), colliders);
 }
+
+void Player::Compose()
+{
+    Object::Compose();
+}   

@@ -28,7 +28,7 @@ RMDIR     = if exist "$(subst /,\,$1)" rmdir /S /Q "$(subst /,\,$1)"
 
 # Locate all source files and determine object/dependency files
 SRCS     := $(wildcard $(SRC_DIR)/*.cpp) $(wildcard $(SRC_DIR)/*/*.cpp)
-TP_SRCS  := $(TP_DIR)/glad/src/glad.c $(TP_DIR)/xatlas/xatlas.cpp
+TP_SRCS  := $(TP_DIR)/glad/src/glad.c $(TP_DIR)/xatlas/xatlas.cpp $(TP_DIR)/ufbx/ufbx.c
 OBJS     := $(patsubst %.c,$(OBJ_DIR)/%.o,$(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SRCS) $(TP_SRCS)))
 DEPS     := $(OBJS:.o=.d)
 

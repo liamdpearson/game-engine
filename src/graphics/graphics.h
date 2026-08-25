@@ -6,12 +6,13 @@
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
 #include <glm/gtc/matrix_transform.hpp> // perspective, lookAt, rotate, radians
 #include <glm/gtc/type_ptr.hpp>         // value_ptr (hand a matrix to OpenGL)
+#include <glm/gtc/quaternion.hpp>       // quat slerp, mat4_cast
 
 #include <xatlas/xatlas.h>
 
 #include <vector>
 
-const int VERTEX_FLOATS = 10;
+const int VERTEX_FLOATS = 15;
 
 struct Transform
 {
@@ -164,6 +165,50 @@ class StaticMesh : public Mesh
         ~StaticMesh() override;
 };
 
+// all vectors are of the same length bone has one of each
+struct Skeleton
+{
+    std::vector<glm::mat4> inverseBind;
+    std::vector<int> parent;
+    std::vector<std::string> names;
+    std::vector<glm::mat4> parentWorld;
+};
+
+struct BoneTrack
+{
+    std::vector<glm::vec3> pos;
+    std::vector<glm::quat> rot;
+    std::vector<glm::vec3> scale;
+};
+
+struct BonePose
+{
+    glm::vec3 pos{0.0f};
+    glm::quat rot{1.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec3 scale{1.0f};
+};
+
+struct Animation
+{
+    std::string name;
+    std::vector<BoneTrack> tracks;
+    int frameCount = 0;
+    float fps = 30.0f;
+    float duration = 0.0f; // seconds
+};
+
+class AnimatedMesh : public Mesh
+{
+    private:
+        Skeleton skeleton;
+
+    public:
+        AnimatedMesh() = default;
+
+        void setSkeleton(const Skeleton& skel) { this->skeleton = skel; }
+        Skeleton getSkeleton() const { return this->skeleton; }
+};
+
 // camera node containing pos, front, and up needed for configureCamera.
 // pos, front, and up are set in Camera::Compose in graphics.cpp
 class Camera : public Object
@@ -204,12 +249,14 @@ class Camera : public Object
 
 class Player : public Object
 {
-    public:
+     public:
         float height = 1.8f; // capsule height
         float radius = 0.3f; // capsule width
-        glm::vec3 velocity;
+        glm::vec3 velocity{0.0f};
+        bool grounded = false;
 
         Player() = default;
+        void Compose() override;
 
         Player(const Transform t,
                const float height, const float radius)

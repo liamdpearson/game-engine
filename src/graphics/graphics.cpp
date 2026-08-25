@@ -34,6 +34,10 @@ layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
 layout (location = 3) in vec2 aLightMapCoord;
+layout (location = 4) in uint aBoneIndices;
+layout (location = 5) in vec4 aBoneWeights;
+
+const int MAX_BONES = 256;
 
 out vec2 TexCoord;
 out vec3 Normal;
@@ -44,14 +48,35 @@ uniform mat4 model;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat3 normalMat;
+uniform mat4 boneMatrices[MAX_BONES];
 
 void main()
 {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    float total = aBoneWeights.x + aBoneWeights.y + aBoneWeights.z + aBoneWeights.w;
+
+    vec4 pos;
+    if (total > 0.0001) {
+        uint b0 = (aBoneIndices >> 24) & 0xFFu;
+        uint b1 = (aBoneIndices >> 16) & 0xFFu;
+        uint b2 = (aBoneIndices >>  8) & 0xFFu;
+        uint b3 =  aBoneIndices        & 0xFFu;
+
+        mat4 skin = 
+            aBoneWeights.x * boneMatrices[b0] +
+            aBoneWeights.y * boneMatrices[b1] +
+            aBoneWeights.z * boneMatrices[b2] +
+            aBoneWeights.w * boneMatrices[b3];
+        pos = skin * vec4(aPos, 1.0);
+
+    } else {
+        pos = vec4(aPos, 1.0);
+    }
+
+    gl_Position = projection * view * model * pos;
     TexCoord = aTexCoord;
     LightMapCoord = aLightMapCoord;
     Normal = normalMat * aNormal;
-    FragPos = vec3(model * vec4(aPos, 1.0));
+    FragPos = vec3(model * pos);
 }
 )glsl";
 
@@ -274,6 +299,12 @@ void Mesh::Upload()
     // uv2
     glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride, (void*)(8 * sizeof(float)));
     glEnableVertexAttribArray(3);
+    // bone indices
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_INT, stride, (void*)(10 * sizeof(float)));
+    glEnableVertexAttribArray(4);
+    // bone weights
+    glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, stride, (void*)(11 * sizeof(float)));
+    glEnableVertexAttribArray(5);
 
     glBindVertexArray(0);
 

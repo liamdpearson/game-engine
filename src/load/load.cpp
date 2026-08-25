@@ -3,12 +3,16 @@
 #include "../graphics/graphics.h"
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
 #include <xatlas/xatlas.h>
+#include <ufbx/ufbx.h>
 #include <fstream>
 #include <sstream>
 #include <vector>
 #include <iostream>
+#include <cstring>
 #include <map>
 
+
+const int MAX_BONES = 256;
 
 // loops through mesh tris and adds up area
 static float getMeshArea(const std::vector<float>& verts,
@@ -19,7 +23,7 @@ static float getMeshArea(const std::vector<float>& verts,
     for (size_t i = 0; i + 2 < idx.size(); i += 3)
     {
         glm::vec3 pos[3];
-        for (int c = 0; c < 3; c++)
+        for (int c = 0; c < 3; ++c)
         {
             size_t v = (size_t)idx[i + c] * VERTEX_FLOATS;
             pos[c] = glm::vec3(verts[v], verts[v + 1], verts[v + 2]);
@@ -67,7 +71,7 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
     std::vector<float> finalVerts;
     std::vector<unsigned int> finalIdx;
 
-    for (uint32_t i = 0; i < outputMesh.vertexCount; i++)
+    for (uint32_t i = 0; i < outputMesh.vertexCount; ++i)
     {
         const xatlas::Vertex& xatlasVert = outputMesh.vertexArray[i];
 
@@ -86,9 +90,15 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
         // uv2
         finalVerts.push_back(xatlasVert.uv[0] / static_cast<float>(atlas->width));
         finalVerts.push_back(xatlasVert.uv[1] / static_cast<float>(atlas->height));
+        // anim data, carried through the repack untouched
+        finalVerts.push_back(verts[ogVertIdx + 10]);
+        finalVerts.push_back(verts[ogVertIdx + 11]);
+        finalVerts.push_back(verts[ogVertIdx + 12]);
+        finalVerts.push_back(verts[ogVertIdx + 13]);
+        finalVerts.push_back(verts[ogVertIdx + 14]);
     }
     
-    for (uint32_t i = 0; i < outputMesh.indexCount; i++) {
+    for (uint32_t i = 0; i < outputMesh.indexCount; ++i) {
         finalIdx.push_back(outputMesh.indexArray[i]);
     }
 
@@ -100,12 +110,77 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
     return true;
 }
 
-// loads obj file doesnt look at mtl yet
-static bool loadObj(const char* path, std::vector<float>& outVerts,
+// loads .fbx file unanimated
+static void loadFbxUnanimated(const char* path, std::vector<float>& outVerts,
+                    std::vector<unsigned int>& outIndices)
+{
+    ufbx_load_opts opts = {NULL}; // default options
+    opts.target_axes = ufbx_axes_right_handed_y_up;
+    opts.target_unit_meters = 1.0f;
+
+    ufbx_error error;
+    ufbx_scene* scene = ufbx_load_file(path, &opts, &error);
+    if (!scene)
+    {
+        std::cout << "Failed to load scene: " << error.description.data << '\n';
+        ufbx_free_scene(scene);
+        return;
+    }
+
+    for (size_t i = 0; i < scene->nodes.count; ++i)
+    {
+        ufbx_node* node = scene->nodes.data[i];
+        ufbx_mesh* mesh = node->mesh;
+        if (!mesh) continue;
+
+        ufbx_matrix geomToWorld = node->geometry_to_world;
+        std::vector<unsigned int> tri(mesh->max_face_triangles * 3);
+
+        for (size_t fi = 0; fi < mesh->faces.count; ++fi)
+        {
+            ufbx_face face = mesh->faces[fi];
+            size_t numTris = ufbx_triangulate_face(tri.data(), tri.size(), mesh, face);
+
+            for (size_t i = 0; i < numTris * 3; ++i)
+            {
+                unsigned int corner = tri[i];
+                ufbx_vec3 p = ufbx_get_vertex_vec3(&mesh->vertex_position, corner);
+                p = ufbx_transform_position(&geomToWorld, p);
+                ufbx_vec2 uv = mesh->vertex_uv.exists
+                    ? ufbx_get_vertex_vec2(&mesh->vertex_uv, corner)
+                    : ufbx_vec2{0.0f, 0.0f};
+                ufbx_vec3 n = mesh->vertex_normal.exists
+                    ? ufbx_get_vertex_vec3(&mesh->vertex_normal, corner)
+                    : ufbx_vec3{0.0f, 0.0f, 1.0f};
+                n = ufbx_transform_direction(&geomToWorld, n);
+
+                outIndices.push_back((unsigned int)(outVerts.size() / VERTEX_FLOATS));
+                outVerts.push_back((float)p.x);
+                outVerts.push_back((float)p.y);
+                outVerts.push_back((float)p.z);
+                outVerts.push_back((float)uv.x);
+                outVerts.push_back((float)uv.y);
+                outVerts.push_back((float)n.x);
+                outVerts.push_back((float)n.y);
+                outVerts.push_back((float)n.z);
+                outVerts.push_back(0.0f); // light map uv
+                outVerts.push_back(0.0f);
+                outVerts.push_back(0.0f); // empty anim data
+                outVerts.push_back(0.0f);
+                outVerts.push_back(0.0f);
+                outVerts.push_back(0.0f);
+                outVerts.push_back(0.0f);
+            }
+        }
+    }
+}
+
+// loads .obj file
+static void loadObj(const char* path, std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices)
 {
     std::ifstream file(path);
-    if (!file) { std::cout << "Failed to open " << path << '\n'; return false; }
+    if (!file) { std::cout << "Failed to open " << path << '\n'; return; }
 
     std::vector<glm::vec3> pos;
     std::vector<glm::vec2> uv;
@@ -179,7 +254,11 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
                         outVerts.push_back(0.0f);
                         outVerts.push_back(0.0f);
                     }
-                    // extra two to be filled with second uv set for lightmaps
+                    outVerts.push_back(0.0f); // second uv set for lightmaps
+                    outVerts.push_back(0.0f);
+                    outVerts.push_back(0.0f); // empty anim data
+                    outVerts.push_back(0.0f);
+                    outVerts.push_back(0.0f);
                     outVerts.push_back(0.0f);
                     outVerts.push_back(0.0f);
 
@@ -188,14 +267,13 @@ static bool loadObj(const char* path, std::vector<float>& outVerts,
                 }
             }
             // triangulate as a face
-            for (size_t i = 1; i + 1 < face.size(); i++) {
+            for (size_t i = 1; i + 1 < face.size(); ++i) {
                 outIndices.push_back(face[0]);
                 outIndices.push_back(face[i]);
                 outIndices.push_back(face[i+1]);
             }
         }
     }
-    return true;
 }
 
 StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
@@ -205,8 +283,22 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
-    loadObj(objPath, verts, idx);
 
+    const char* file = strrchr(objPath, '.');
+    if (file) {
+        if (strcmp(file, ".obj") == 0) {
+            loadObj(objPath, verts, idx);
+        }
+        else if (strcmp(file, ".fbx") == 0) {
+            loadFbxUnanimated(objPath, verts, idx);
+        }
+        else {
+            std::cout << "File not recognized: " << objPath << '\n';
+        }
+    } else {
+        std::cout << "No file type: " << objPath << '\n';
+    }
+    
     xatlas::Atlas* atlas;
     float ogArea = getMeshArea(verts, idx);
     float scaledArea = (transform.scaleX * transform.scaleY +
@@ -235,13 +327,255 @@ Mesh makeObj(const Transform& transform, const char* objPath,
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
-    loadObj(objPath, verts, idx);
+
+    const char* file = strrchr(objPath, '.');
+    if (file) {
+        if (strcmp(file, ".obj") == 0) {
+            loadObj(objPath, verts, idx);
+        }
+        else if (strcmp(file, ".fbx") == 0) {
+            loadFbxUnanimated(objPath, verts, idx);
+        }
+        else {
+            std::cout << "File not recognized: " << objPath << '\n';
+        }
+    } else {
+        std::cout << "No file type: " << objPath << '\n';
+    }
 
     obj.transform = transform;
     obj.setVertices(verts);
     obj.setIndices(idx);
     obj.setTexture(loadTexture(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
+
+    return obj;
+}
+
+static glm::mat4 ufbxToGlm(const ufbx_matrix& m)
+{
+    glm::mat4 r(1.0f);
+    r[0] = glm::vec4((float)m.cols[0].x, (float)m.cols[0].y, (float)m.cols[0].z, 0.0f);
+    r[1] = glm::vec4((float)m.cols[1].x, (float)m.cols[1].y, (float)m.cols[1].z, 0.0f);
+    r[2] = glm::vec4((float)m.cols[2].x, (float)m.cols[2].y, (float)m.cols[2].z, 0.0f);
+    r[3] = glm::vec4((float)m.cols[3].x, (float)m.cols[3].y, (float)m.cols[3].z, 1.0f);
+    return r;
+}
+
+static uint32_t pack(uint32_t a, uint32_t b, uint32_t c, uint32_t d) {
+    return (a << 24) | (b << 16) | (c << 8) | d;
+}
+
+static float uintBits(uint32_t bits) {
+    float f;
+    std::memcpy(&f, &bits, sizeof(f));
+    return f;
+}
+
+// loads .fbx file animated
+static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
+                            std::vector<unsigned int>& outIndices,
+                            Skeleton& outSkel,
+                            std::vector<Animation>& outAnims)
+{
+    ufbx_load_opts opts = {NULL}; // default options
+    opts.target_axes = ufbx_axes_right_handed_y_up;
+    opts.target_unit_meters = 1.0f;
+
+    ufbx_error error;
+    ufbx_scene* scene = ufbx_load_file(path, &opts, &error);
+    if (!scene)
+    {
+        std::cout << "Failed to load scene: " << error.description.data << '\n';
+        ufbx_free_scene(scene);
+        return;
+    }
+
+    std::map<ufbx_node*, int> boneMap;
+    std::vector<ufbx_node*> boneNodes;
+
+    for (size_t i = 0; i < scene->nodes.count; ++i)
+    {
+        ufbx_node* node = scene->nodes.data[i];
+        ufbx_mesh* mesh = node->mesh;
+        if (!mesh) continue;
+
+        ufbx_matrix geomToWorld = node->geometry_to_world;
+        std::vector<unsigned int> tri(mesh->max_face_triangles * 3);
+
+        ufbx_skin_deformer* skin = 
+            mesh->skin_deformers.count > 0 ? mesh->skin_deformers.data[0] : nullptr;
+        std::vector<int> clusterToBone;
+        if (skin)
+        {
+            clusterToBone.resize(skin->clusters.count);
+            for (size_t c = 0; c < skin->clusters.count; ++c)
+            {
+                ufbx_skin_cluster* cl = skin->clusters.data[c];
+                ufbx_node* boneNode = cl->bone_node;
+                auto it = boneMap.find(boneNode);
+                int bi;
+                if (it != boneMap.end()) {
+                    bi = it->second;
+                } else {
+                    bi = (int)outSkel.inverseBind.size();
+                    boneMap[boneNode] = bi;
+
+                    outSkel.inverseBind.push_back(ufbxToGlm(cl->geometry_to_bone) * 
+                                                  glm::inverse(ufbxToGlm(geomToWorld)));
+                    outSkel.parentWorld.push_back(boneNode->parent
+                                                  ? ufbxToGlm(boneNode->parent->node_to_world)
+                                                  : glm::mat4(1.0f));
+                    outSkel.names.push_back(boneNode ? std::string(boneNode->name.data) : "");
+                    outSkel.parent.push_back(-1);
+                }
+                clusterToBone[c] = bi;
+            }
+        }
+
+        for (size_t fi = 0; fi < mesh->faces.count; ++fi)
+        {
+            ufbx_face face = mesh->faces[fi];
+            size_t numTris = ufbx_triangulate_face(tri.data(), tri.size(), mesh, face);
+
+            for (size_t i = 0; i < numTris * 3; ++i)
+            {
+                unsigned int corner = tri[i];
+                ufbx_vec3 p = ufbx_get_vertex_vec3(&mesh->vertex_position, corner);
+                p = ufbx_transform_position(&geomToWorld, p);
+                ufbx_vec2 uv = mesh->vertex_uv.exists
+                    ? ufbx_get_vertex_vec2(&mesh->vertex_uv, corner)
+                    : ufbx_vec2{0.0f, 0.0f};
+                ufbx_vec3 n = mesh->vertex_normal.exists
+                    ? ufbx_get_vertex_vec3(&mesh->vertex_normal, corner)
+                    : ufbx_vec3{0.0f, 0.0f, 1.0f};
+                n = ufbx_transform_direction(&geomToWorld, n);
+
+                uint32_t bi[4] = {0,0,0,0};
+                float bw[4] = {0,0,0,0};
+                if (skin)
+                {
+                    uint32_t vert = mesh->vertex_indices.data[corner];
+                    ufbx_skin_vertex sv = skin->vertices.data[vert];
+
+                    uint32_t count = sv.num_weights < 4 ? sv.num_weights : 4;
+                    float sum = 0.0f;
+                    for (uint32_t w = 0; w < count; ++w)
+                    {
+                        ufbx_skin_weight sw = skin->weights.data[sv.weight_begin + w];
+                        bi[w] = (uint32_t)clusterToBone[sw.cluster_index];
+                        bw[w] = (float)sw.weight;
+                        sum += (float)sw.weight;
+                    }
+                    if (sum != 1.0f && sum > 0.0f) for (int w = 0; w < 4; ++w) bw[w] /= sum;
+                }
+
+                outIndices.push_back((unsigned int)(outVerts.size() / VERTEX_FLOATS));
+                outVerts.push_back((float)p.x);
+                outVerts.push_back((float)p.y);
+                outVerts.push_back((float)p.z);
+                outVerts.push_back((float)uv.x);
+                outVerts.push_back((float)uv.y);
+                outVerts.push_back((float)n.x);
+                outVerts.push_back((float)n.y);
+                outVerts.push_back((float)n.z);
+                outVerts.push_back(0.0f);
+                outVerts.push_back(0.0f);
+                outVerts.push_back(uintBits(pack(bi[0], bi[1], bi[2], bi[3])));
+                outVerts.push_back(bw[0]);
+                outVerts.push_back(bw[1]);
+                outVerts.push_back(bw[2]);
+                outVerts.push_back(bw[3]);
+            }
+        }
+    }
+
+    for (auto& bone : boneMap)
+    {
+        ufbx_node* boneNode = bone.first;
+        int bi = bone.second;
+        if (boneNode && boneNode->parent)
+        {
+            auto pit = boneMap.find(boneNode->parent);
+            if (pit != boneMap.end()) outSkel.parent[bi] = pit->second;
+        }
+    }
+
+    for (size_t si = 0; si < scene->anim_stacks.count && !boneNodes.empty(); ++si)
+    {
+        ufbx_anim_stack* stack = scene->anim_stacks.data[si];
+        ufbx_anim* anim = stack->anim;
+
+        float fps = 30.0f;
+        double t0 = stack->time_begin;
+        double t1 = stack->time_end;
+        double dur = t1 - t0;
+        int frames = (int)std::ceil(dur * fps) + 1;
+        if (frames < 1) frames = 1;
+
+        Animation out;
+        out.name = stack->name.data ? std::string(stack->name.data) : "";
+        out.fps = fps;
+        out.duration = (float)dur;
+        out.frameCount = frames;
+        out.tracks.resize(boneNodes.size());
+
+        for (int f = 0; f < frames; ++f)
+        {
+            double t = t0 + (frames > 1 ? dur * (double)f / (double)(frames - 1) : 0.0);
+            for (size_t b = 0; b < boneNodes.size(); ++b)
+            {
+                // get nodes local pos quat and scale for bone each frame
+                ufbx_transform lt = ufbx_evaluate_transform(anim, boneNodes[b], t);
+                out.tracks[b].pos.push_back(
+                    glm::vec3((float)lt.translation.x, (float)lt.translation.y, (float)lt.translation.z)
+                );
+                out.tracks[b].rot.push_back( // glm quat is (w, x, y, z)
+                    glm::quat((float)lt.rotation.w, (float)lt.rotation.x,
+                              (float)lt.rotation.y, (float)lt.rotation.z)
+                );
+                out.tracks[b].scale.push_back(
+                    glm::vec3((float)lt.scale.x, (float)lt.scale.y, (float)lt.scale.z)
+                );
+            }
+        }
+        std::cout << "Baked clip " << out.name << " frames: " 
+                  << out.frameCount << " duration: " << out.duration;
+        outAnims.push_back(out);
+    }
+    ufbx_free_scene(scene);
+}
+
+AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
+                             const char* texPath, bool pixelated)
+{
+    AnimatedMesh obj;
+
+    std::vector<float> verts;
+    std::vector<unsigned int> idx;
+    Skeleton skel;
+    std::vector<Animation> anims;
+
+    const char* file = strrchr(objPath, '.');
+    if (file) {
+        if (strcmp(file, ".fbx") == 0) {
+            loadFbxAnimated(objPath, verts, idx, skel, anims);
+        }
+        else {
+            std::cout << "File type not recognized: " << objPath << '\n';
+        }
+    } else {
+        std::cout << "No file type: " << objPath << '\n';
+    }
+    
+
+    obj.transform = transform;
+    obj.setVertices(verts);
+    obj.setIndices(idx);
+    obj.setTexture(loadTexture(texPath, pixelated));
+    obj.setIndexCount((GLsizei)idx.size());
+
+    obj.setSkeleton(skel);
 
     return obj;
 }

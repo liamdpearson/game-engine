@@ -52,11 +52,15 @@ int main()
     glfwSetCursorPosCallback(window, mouseMoveCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
-    
 
     // define objects
 
-    StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f, 0.5f},
+    Mesh knight = makeObj(Transform{0.0f, 5.0f, 2.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+            "assets/knight/knight.fbx", "assets/knight/knight.png", true);
+        
+    rootObjs.push_back(&knight);
+
+    StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
 
     rootObjs.push_back(&test);
@@ -71,15 +75,19 @@ int main()
 
     player.children.push_back(&camera);
 
-    Mesh gun = makeObj(Transform{0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    Mesh gun = makeObj(Transform{0.1f, -0.1f, -0.15f, -90.0f, 0.0f, 0.0f, 0.3f, 0.3f, 0.3f},
             "assets/gun/gun.obj", "assets/gun/gun.png", false);
 
     camera.children.push_back(&gun);
     
     // define lights
-    Light light = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
-                        20.0f, 20.0f, 3.0f};
-    lights.push_back(&light);
+    Light light1 = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
+                        40.0f, 40.0f, 1.0f};
+    lights.push_back(&light1);
+
+    Light light2 = Light{glm::vec3(5.0f, 7.0f, 0.0f), glm::vec3(1.0f, 0.0f, 1.0f),
+                        20.0f, 10.0f, 1.0f};
+    lights.push_back(&light2);
 
     bakeSceneLighting();
     collectSceneColliders();
@@ -104,7 +112,15 @@ int main()
             glfwSetWindowShouldClose(window, true);
         }
 
+        float acceleration = 30.0f * deltaTime;
+
         glm::vec3 moveDir = glm::vec3(0.0f);
+
+        glm::vec3 forward = glm::vec3(
+            -sin(glm::radians(player.transform.yaw)),
+            0.0f,
+            -cos(glm::radians(player.transform.yaw))
+        );
 
         glm::vec3 right = glm::vec3(
             -sin(glm::radians(player.transform.yaw + 90.0f)),
@@ -113,10 +129,10 @@ int main()
         );
         
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            moveDir += camera.getFront();
+            moveDir += forward;
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            moveDir -= camera.getFront();
+            moveDir -= forward;
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
             moveDir += right;
@@ -124,23 +140,44 @@ int main()
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
             moveDir -= right;
         }
-        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-            moveDir += camera.getUp();
-        }
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            moveDir -= camera.getUp();
+            acceleration *= 1.5f;
+        }
+        if (keyPressed(GLFW_KEY_SPACE) && player.grounded) {
+            player.velocity.y += 5.0f;
         }
     
         if (glm::length(moveDir) > 0.0f)
             moveDir = glm::normalize(moveDir);
         
-        player.transform.x += moveDir.x * deltaTime;
-        player.transform.y += moveDir.y * deltaTime;
-        player.transform.z += moveDir.z * deltaTime;
+        player.velocity.y += -9.81f * deltaTime;
+        if (player.velocity.y < -50.0f) player.velocity.y = -50.0f;
 
-        resolvePlayerCollision(player, colliders);
+        float damping = powf(0.005f, deltaTime);
+        player.velocity.x *= damping;
+        player.velocity.z *= damping;
+        player.velocity += moveDir * acceleration;
 
-        
+        glm::vec3 step = player.velocity * deltaTime;
+        int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (player.radius * 0.5f)));
+
+        bool groundedAny = false;
+
+        for (int i = 0; i < substeps; i++)
+        {
+            player.transform.x += step.x / substeps;
+            player.transform.y += step.y / substeps;
+            player.transform.z += step.z / substeps;
+
+            resolvePlayerCollision(player, colliders);
+
+            if (player.grounded) groundedAny = true;
+        }
+
+        player.grounded = groundedAny;
+
+
+        knight.transform.yaw += 0.1;
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
