@@ -452,6 +452,11 @@ void StaticMesh::Draw()
     Object::Draw();
 }
 
+void Object::ComputePose()
+{
+    for (Object*& child : children) child->ComputePose();
+}
+
 // calculates the pose of each bone given the values at each frame and time
 static void sampleClip(const Animation& anim, float t, std::vector<BonePose>& out)
 {
@@ -476,11 +481,11 @@ static void sampleClip(const Animation& anim, float t, std::vector<BonePose>& ou
 
 // fills palette with each bone's skinning matrix, doesn't take
 // AnimatedMesh by const ref because it needs to set its lastPose
-static void computePose(AnimatedMesh& obj, std::vector<glm::mat4>& palette)
+static void computePose(AnimatedMesh& obj)
 {
     const Skeleton& sk = obj.getSkeleton();
     int n = sk.inverseBind.size();
-    palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
+    obj.palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
     if (n == 0 || obj.currentAnim < 0 || obj.currentAnim >= obj.animations.size())
         return;
     const Animation& anim = obj.animations[obj.currentAnim];
@@ -550,7 +555,22 @@ static void computePose(AnimatedMesh& obj, std::vector<glm::mat4>& palette)
     }
 
     // palette = animated world * invbind
-    for (int b = 0; b < n; ++b) palette[b] = world[b] * sk.inverseBind[b];
+    for (int b = 0; b < n; ++b) obj.palette[b] = world[b] * sk.inverseBind[b];
+    obj.boneWorlds = world;
+}
+
+void AnimatedMesh::ComputePose()
+{
+    this->animTime += deltaTime;
+    if (this->nextAnim != -1) {
+        if (this->animations[this->currentAnim].duration - this->animTime <= 0) // if cur anim done
+            { this->SetAnimation(this->nextAnim, 0.5f); this->nextAnim = -1; }
+    }
+    if (this->blendDuration > 0.0f) blendElapsed += deltaTime;
+    std::vector<glm::mat4> palette;
+    computePose(*this);
+
+    Object::ComputePose();
 }
 
 // if object is an animated mesh this will run.
@@ -571,16 +591,8 @@ void AnimatedMesh::Draw()
     glBindTexture(GL_TEXTURE_2D, this->getTexture());
     glUniform1i(texLoc, 0);
 
-    this->animTime += deltaTime;
-    if (this->nextAnim != -1) {
-        if (this->animations[this->currentAnim].duration - this->animTime <= 0) // if cur anim done
-            { this->SetAnimation(this->nextAnim, 0.5f); this->nextAnim = -1; }
-    }
-    if (this->blendDuration > 0.0f) blendElapsed += deltaTime;
-    std::vector<glm::mat4> palette;
-    computePose(*this, palette);
-    GLsizei count = (GLsizei)std::min((size_t)MAX_BONES, palette.size());
-    glUniformMatrix4fv(boneMatricesLoc, count, GL_FALSE, glm::value_ptr(palette[0]));
+    GLsizei count = (GLsizei)std::min((size_t)MAX_BONES, this->palette.size());
+    glUniformMatrix4fv(boneMatricesLoc, count, GL_FALSE, glm::value_ptr(this->palette[0]));
 
     glBindVertexArray(this->getVAO());
     glDrawElements(GL_TRIANGLES, this->getIndexCount(), GL_UNSIGNED_INT, 0);
@@ -625,10 +637,17 @@ void AnimatedMesh::SetAnimation(const std::string& name, float blendTime, int ne
 // recursive part of the compose walk.
 void Object::Compose()
 {
-    for (Object*& child : children) {
-        child->setWorld(this->world * child->transform.matrix());
-        child->Compose();
+    for (Object*& child : children) child->Compose();
+
+    if (this->parent) {
+        if (boneIndex > -1) {
+            AnimatedMesh* par = static_cast<AnimatedMesh*>(this->parent);
+            this->world = this->parent->getWorld() * par->boneWorlds[boneIndex] * this->transform.matrix();
+        } else {
+            this->world = this->parent->getWorld() * this->transform.matrix();
+        }
     }
+    else this->world = this->transform.matrix();
 }
 
 // if object is a camera this will run instead of Object::Compose.

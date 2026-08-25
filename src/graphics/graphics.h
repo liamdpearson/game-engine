@@ -12,6 +12,7 @@
 
 #include <vector>
 #include <string>
+#include <iostream>
 
 
 const int VERTEX_FLOATS = 15;
@@ -83,6 +84,8 @@ class Object
     public:
         Transform transform;
         std::vector<Object*> children;
+        Object* parent = nullptr; // nullptr if root, points too parent object
+        int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
 
         Object() = default;
         Object(const Transform& t)
@@ -90,6 +93,7 @@ class Object
 
         virtual void Upload();
         virtual void Compose();
+        virtual void ComputePose();
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
         virtual void CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out);
@@ -97,6 +101,13 @@ class Object
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
+
+        virtual void addChild(Object* child, int bi = -1) {
+            if (bi != -1)
+                std::cout << "Added bone index when adding child to non animated mesh." << '\n';
+            this->children.push_back(child);
+            child->parent = this;
+        }
 
         virtual ~Object() = default;
 };
@@ -208,11 +219,15 @@ class AnimatedMesh : public Mesh
         Skeleton skeleton;
 
     public:
+        std::vector<glm::mat4> palette;
+        std::vector<glm::mat4> boneWorlds;
         std::vector<Animation> animations; // all clips baked from fbx
         int currentAnim = -1;  // current animation index
         float animTime = 0.0f; // seconds into current clip
         int nextAnim = -1;     // animation set to play after current one done
 
+        // lastPose is updated every frame (what player last saw)
+        // blendFrom is empty unless currently fading between animations
         std::vector<BonePose> lastPose;
         std::vector<BonePose> blendFrom;
         float blendDuration = 0.0f;
@@ -221,12 +236,29 @@ class AnimatedMesh : public Mesh
         AnimatedMesh() = default;
 
         void Draw() override;
+        void ComputePose() override;
 
         void SetAnimation(int index, float blendTime = 0.0f, int nextAnim = -1);
         void SetAnimation(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
 
         void setSkeleton(const Skeleton& skel) { this->skeleton = skel; }
         Skeleton getSkeleton() const { return this->skeleton; }
+
+        int findBoneIndex(std::string name) {
+            for (int b = 0; b < this->skeleton.names.size(); ++b) {
+                if (this->skeleton.names[b] == name) return b;
+            }
+            std::cout << "Couldn't find bone: " << name << '\n';
+            return -1;
+        }
+
+        void addChild(Object* child, int bi = -1) override {
+            if (bi > -1)
+                child->boneIndex = bi;
+
+            this->children.push_back(child);
+            child->parent = this;
+        }
 };
 
 // camera node containing pos, front, and up needed for configureCamera.

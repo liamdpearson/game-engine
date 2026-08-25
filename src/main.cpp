@@ -55,11 +55,11 @@ int main()
 
     // define objects
 
-    AnimatedMesh shotgun = makeAnimatedObj(Transform{0.0f, 5.0f, 2.0f, 90.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    AnimatedMesh knight = makeAnimatedObj(Transform{0.0f, 5.0f, 2.0f, 90.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/knight/knight.fbx", "assets/knight/knight.png", true);
     
-    shotgun.SetAnimation(1);
-    rootObjs.push_back(&shotgun);    
+    knight.SetAnimation(1);
+    rootObjs.push_back(&knight);
 
     StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
@@ -74,12 +74,12 @@ int main()
     Camera camera{90.0f, glm::vec3(0.0f, player.height - player.radius, 0.0f),
                   glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
 
-    player.children.push_back(&camera);
+    player.addChild(&camera);
 
-    Mesh gun = makeObj(Transform{0.1f, -0.1f, -0.15f, -90.0f, 0.0f, 0.0f, 0.3f, 0.3f, 0.3f},
+    Mesh gun = makeObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/gun/gun.obj", "assets/gun/gun.png", false);
 
-    camera.children.push_back(&gun);
+    knight.addChild(&gun, knight.findBoneIndex("wrist_l"));
     
     // define lights
     Light light1 = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
@@ -182,10 +182,9 @@ int main()
         keys_pressed = {}; keys_released = {};
         mouse_buttons_pressed = {}; mouse_buttons_released = {};
 
-        for (Object*& obj : rootObjs) {
-            obj->setWorld(obj->transform.matrix());
-            obj->Compose();
-        }
+        for (Object*& obj : rootObjs) obj->ComputePose();
+        
+        for (Object*& obj : rootObjs) obj->Compose();
 
         // render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
