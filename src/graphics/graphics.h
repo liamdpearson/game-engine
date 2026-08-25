@@ -11,6 +11,7 @@
 #include <xatlas/xatlas.h>
 
 #include <vector>
+#include <string>
 
 const int VERTEX_FLOATS = 15;
 

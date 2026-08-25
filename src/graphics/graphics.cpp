@@ -12,6 +12,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <string>
 
 
 // define scene variables
@@ -48,7 +49,7 @@ uniform mat4 model;
 uniform mat4 projection;
 uniform mat4 view;
 uniform mat3 normalMat;
-uniform mat4 boneMatrices[MAX_BONES];
+// uniform mat4 boneMatrices[MAX_BONES];
 
 void main()
 {
@@ -56,17 +57,17 @@ void main()
 
     vec4 pos;
     if (total > 0.0001) {
-        uint b0 = (aBoneIndices >> 24) & 0xFFu;
-        uint b1 = (aBoneIndices >> 16) & 0xFFu;
-        uint b2 = (aBoneIndices >>  8) & 0xFFu;
-        uint b3 =  aBoneIndices        & 0xFFu;
+        // uint b0 = (aBoneIndices >> 24) & 0xFFu;
+        // uint b1 = (aBoneIndices >> 16) & 0xFFu;
+        // uint b2 = (aBoneIndices >>  8) & 0xFFu;
+        // uint b3 =  aBoneIndices        & 0xFFu;
 
-        mat4 skin = 
-            aBoneWeights.x * boneMatrices[b0] +
-            aBoneWeights.y * boneMatrices[b1] +
-            aBoneWeights.z * boneMatrices[b2] +
-            aBoneWeights.w * boneMatrices[b3];
-        pos = skin * vec4(aPos, 1.0);
+        // mat4 skin = 
+        //     aBoneWeights.x * boneMatrices[b0] +
+        //     aBoneWeights.y * boneMatrices[b1] +
+        //     aBoneWeights.z * boneMatrices[b2] +
+        //     aBoneWeights.w * boneMatrices[b3];
+        // pos = skin * vec4(aPos, 1.0);
 
     } else {
         pos = vec4(aPos, 1.0);
