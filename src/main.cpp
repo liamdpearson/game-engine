@@ -44,8 +44,9 @@ int main()
 
     glEnable(GL_DEPTH_TEST);
 
-    // build shader program
+    // build shader programs
     buildShaderProgram();
+    buildUIProgram();
 
     // set callbacks
     glfwSetKeyCallback(window, keyCallback);
@@ -66,7 +67,7 @@ int main()
 
     rootObjs.push_back(&test);
 
-    Player player = Player{Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    Capsule player = Capsule{Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
                            1.8f, 0.3f};
 
     rootObjs.push_back(&player);
@@ -80,8 +81,10 @@ int main()
             "assets/gun/gun.obj", "assets/gun/gun.png", false);
 
     knight.addChild(&gun, knight.findBoneIndex("wrist_l"));
+
     
     // define lights
+
     Light light1 = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
                         40.0f, 40.0f, 1.0f};
     lights.push_back(&light1);
@@ -90,10 +93,19 @@ int main()
                         20.0f, 10.0f, 1.0f};
     lights.push_back(&light2);
 
+
+    // define ui
+
+    UIImage crosshair = UIImage{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "assets/ui/crosshair.png"};
+
+    uiRoots.push_back(&crosshair);
+
+
     bakeSceneLighting();
     collectSceneColliders();
 
     for (Object*& obj : rootObjs) obj->Upload();
+    for (UIElement*& ui : uiRoots) ui->UploadUI();
     
 
 
@@ -164,13 +176,13 @@ int main()
 
         bool groundedAny = false;
 
-        for (int i = 0; i < substeps; i++)
+        for (int i = 0; i < substeps; ++i)
         {
             player.transform.x += step.x / substeps;
             player.transform.y += step.y / substeps;
             player.transform.z += step.z / substeps;
 
-            resolvePlayerCollision(player, colliders);
+            resolveCapsuleCollision(player, colliders);
 
             if (player.grounded) groundedAny = true;
         }
@@ -194,6 +206,11 @@ int main()
 
         for (Object*& obj : rootObjs) obj->Draw();
         glBindVertexArray(0);
+
+        beginUI();
+        for (UIElement*& ui : uiRoots) ui->ComposeUI();
+        for (UIElement*& ui : uiRoots) ui->DrawUI();
+        endUI();
         
         glfwSwapBuffers(window);
         glfwPollEvents();

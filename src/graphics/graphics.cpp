@@ -128,7 +128,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 }
 
 // compiles glsl shader.
-static unsigned int compileShader(GLenum type, const char* src)
+int compileShader(GLenum type, const char* src)
 {
     unsigned int shader = glCreateShader(type);
     glShaderSource(shader, 1, &src, NULL);
@@ -147,7 +147,7 @@ static unsigned int compileShader(GLenum type, const char* src)
 }
 
 // links shaders to shader program.
-static unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc)
+unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc)
 {
     unsigned int vs = compileShader(GL_VERTEX_SHADER, vsSrc);
     unsigned int fs = compileShader(GL_FRAGMENT_SHADER, fsSrc);
@@ -192,6 +192,16 @@ void buildShaderProgram()
     lightModeLoc = glGetUniformLocation(shaderProgram, "lightMode");
     lightDirLoc = glGetUniformLocation(shaderProgram, "lightDir");
     objectLightLoc = glGetUniformLocation(shaderProgram, "objectLight");
+}
+
+std::pair<int, int> textureDimensions(const char* path)
+{
+    int tw = 0, th = 0, tch = 0;
+    if (!stbi_info(path, &tw, &th, &tch)) {
+        std::cout << "Failed to read texture dimensions of: " << path << '\n';
+        return {0, 0};
+    }
+    return {tw, th};
 }
 
 // uses stb to image files as textures.
@@ -486,7 +496,7 @@ static void computePose(AnimatedMesh& obj)
     const Skeleton& sk = obj.getSkeleton();
     int n = sk.inverseBind.size();
     obj.palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
-    if (n == 0 || obj.currentAnim < 0 || obj.currentAnim >= obj.animations.size())
+    if (n == 0 || obj.currentAnim < 0 || obj.currentAnim >= (int)obj.animations.size())
         return;
     const Animation& anim = obj.animations[obj.currentAnim];
     if (anim.frameCount == 0) return;
@@ -602,7 +612,7 @@ void AnimatedMesh::Draw()
 
 void AnimatedMesh::SetAnimation(int index, float blendTime, int nextAnim)
 {
-    if (index < 0 || index >= animations.size()) return;
+    if (index < 0 || index >= (int)animations.size()) return;
     
     // blend from the pose on screen if animation is already running
     if (blendTime > 0.0f && !lastPose.empty())
@@ -625,7 +635,7 @@ void AnimatedMesh::SetAnimation(int index, float blendTime, int nextAnim)
 
 void AnimatedMesh::SetAnimation(const std::string& name, float blendTime, int nextAnim)
 {
-    for (int i = 0; i < animations.size(); ++i)
+    for (int i = 0; i < (int)animations.size(); ++i)
     {
         if (animations[i].name == name)
         {

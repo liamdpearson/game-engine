@@ -140,7 +140,7 @@ void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>&
     for (size_t i = 0; i + 2 < indices.size(); i += 3)
     {
         glm::vec3 tri[3];
-        for (int c = 0; c < 3; c++)
+        for (int c = 0; c < 3; ++c)
         {
             size_t v = (size_t)indices[i + c] * VERTEX_FLOATS;
             glm::vec3 local(vertices[v], vertices[v + 1], vertices[v + 2]);
@@ -196,7 +196,7 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
 
         // gets triangle corners world pos, norm, and uv.
         // also creates uv triangle bounding box
-        for (int c = 0; c < 3; c++)
+        for (int c = 0; c < 3; ++c)
         {   
             size_t v = (size_t)indices[i + c] * VERTEX_FLOATS;
             pos[c]  = glm::vec3(vertices[v + 0], vertices[v + 1], vertices[v + 2]);
@@ -226,9 +226,9 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
         int rowMax = std::min((int)atlas->height - 1, (int)std::ceil(vMax * atlas->height - 0.5f));
 
         // loops through the texels inside the bounding box
-        for (int row = rowMin; row <= rowMax; row++)
+        for (int row = rowMin; row <= rowMax; ++row)
         {
-            for (int col = colMin; col <= colMax; col++)
+            for (int col = colMin; col <= colMax; ++col)
             {
                 float texelu = col * wMargin + wOffset;
                 float texelv = row * hMargin + hOffset;
@@ -289,7 +289,7 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
     // the atlas has a island padding of 4 texels.
     for (int j = 0; j < 2; j++) {
         std::vector<int> copy = covMask;
-        for (size_t i = 0; i < covMask.size(); i++)
+        for (size_t i = 0; i < covMask.size(); ++i)
         {
             if (covMask[i] == 1) continue;
 
@@ -365,11 +365,11 @@ void bakeSceneLighting()
     std::cout << minX << ' ' << maxX << ' ' << minY << ' ' << maxY << ' ' << minZ << ' ' << maxZ << '\n';
     
     // build light grid
-    for (int x = minX; x <= maxX; x++)
+    for (int x = minX; x <= maxX; ++x)
     {
-        for (int y = minY; y <= maxY; y++)
+        for (int y = minY; y <= maxY; ++y)
         {
-            for (int z = minZ; z <= maxZ; z++)
+            for (int z = minZ; z <= maxZ; ++z)
             {
                 std::pair<glm::vec3, glm::vec3> litAndDir = sampleLightAndDir(glm::vec3(x, y, z));
                 lightGrid.push_back(litAndDir);

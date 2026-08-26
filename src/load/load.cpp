@@ -113,7 +113,7 @@ static bool GenUV2(xatlas::Atlas*& atlas, std::vector<float>& verts,
 static void loadFbxUnanimated(const char* path, std::vector<float>& outVerts,
                     std::vector<unsigned int>& outIndices)
 {
-    ufbx_load_opts opts = {NULL}; // default options
+    ufbx_load_opts opts = {}; // default options
     opts.target_axes = ufbx_axes_right_handed_y_up;
     opts.target_unit_meters = 1.0f;
 
@@ -378,7 +378,7 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
                             Skeleton& outSkel,
                             std::vector<Animation>& outAnims)
 {
-    ufbx_load_opts opts = {NULL}; // default options
+    ufbx_load_opts opts = {}; // default options
     opts.target_axes = ufbx_axes_right_handed_y_up;
     opts.target_unit_meters = 1.0f;
 

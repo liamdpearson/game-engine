@@ -2,7 +2,7 @@
 
 #include "../graphics/graphics.h"
 
-void resolvePlayerCollision(Player& player, const std::vector<TriAABB>& colliders);
+void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colliders);
 
 void collectSceneColliders();
 

@@ -80,13 +80,13 @@ class Object
 {
     private:
         glm::mat4 world = glm::mat4(1.0f);
+        int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
 
     public:
         Transform transform;
         std::vector<Object*> children;
         Object* parent = nullptr; // nullptr if root, points too parent object
-        int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
-
+        
         Object() = default;
         Object(const Transform& t)
             : transform(t) {}
@@ -101,6 +101,9 @@ class Object
 
         void setWorld(const glm::mat4& world) { this->world = world; }
         glm::mat4 getWorld() const  { return this->world; }
+
+        void setBoneIndex(int bi) { this->boneIndex = bi; }
+        int getBoneIndex() const { return this->boneIndex; }
 
         virtual void addChild(Object* child, int bi = -1) {
             if (bi != -1)
@@ -245,7 +248,7 @@ class AnimatedMesh : public Mesh
         Skeleton getSkeleton() const { return this->skeleton; }
 
         int findBoneIndex(std::string name) {
-            for (int b = 0; b < this->skeleton.names.size(); ++b) {
+            for (int b = 0; b < (int)this->skeleton.names.size(); ++b) {
                 if (this->skeleton.names[b] == name) return b;
             }
             std::cout << "Couldn't find bone: " << name << '\n';
@@ -254,7 +257,7 @@ class AnimatedMesh : public Mesh
 
         void addChild(Object* child, int bi = -1) override {
             if (bi > -1)
-                child->boneIndex = bi;
+                child->setBoneIndex(bi);
 
             this->children.push_back(child);
             child->parent = this;
@@ -299,7 +302,7 @@ class Camera : public Object
         ~Camera() = default;
 };
 
-class Player : public Object
+class Capsule : public Object
 {
      public:
         float height = 1.8f; // capsule height
@@ -307,16 +310,16 @@ class Player : public Object
         glm::vec3 velocity{0.0f};
         bool grounded = false;
 
-        Player() = default;
+        Capsule() = default;
         void Compose() override;
 
-        Player(const Transform t,
+        Capsule(const Transform t,
                const float height, const float radius)
         : height(height), radius(radius) {
             transform = t;
         }
 
-        ~Player() = default;
+        ~Capsule() = default;
 };
 
 // define scene variables
@@ -355,7 +358,13 @@ extern const char* fragmentShaderSource;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
+int compileShader(GLenum type, const char* src);
+
+unsigned int linkShaderProgram(const char* vsSrc, const char* fsSrc);
+
 void buildShaderProgram();
+
+std::pair<int, int> textureDimensions(const char* path);
 
 unsigned int loadTexture(const char* src, bool pixelated, bool clampEdge = false);
 
