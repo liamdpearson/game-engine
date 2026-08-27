@@ -41,7 +41,7 @@ struct UITransform
 class UIElement
 {
     private:
-        glm::mat3 world;
+        glm::mat3 world{1.0f};
 
     public:
         UITransform transform;
@@ -123,9 +123,66 @@ class UIImage : public UIElement
         ~UIImage() override;
 };
 
+struct Glyph
+{
+    float u0, v0, u1, v1; // uv coords for char on font atlas
+    float w, h;           // glyph quad size
+    float xoff, yoff;
+    float xadvance;
+};
+
+struct Font
+{
+    GLuint atlas = 0;
+    int atlasW = 0, atlasH = 0;
+    float bakePixelHeight = 0.0f;
+    float ascent = 0.0f;
+    float lineHeight = 0.0f;
+    Glyph glyphs[96];
+};
+
+class UIText : public UIElement
+{
+    private:
+        std::vector<float> vertices;
+        std::vector<unsigned int> indices;
+        GLuint VAO = 0, VBO = 0, EBO = 0;
+
+    public:
+        std::string text;
+        float size;
+        Font* font = nullptr;
+        glm::vec3 color{1.0f};
+
+        UIText(const UITransform& transform, const std::string& text,
+               float size, Font* font, const glm::vec3& color)
+               : text(text), size(size), font(font), color(color)
+        { this->transform = transform;}
+        
+        void UploadUI() override;
+        void ComposeUI() override;
+        void DrawUI() override;
+
+         void setVertices(const std::vector<float>& verts) { this->vertices = verts; }
+        std::vector<float> getVertices() const { return this->vertices; }
+
+        void setIndices(const std::vector<unsigned int>& idx) { this->indices = idx; }
+        std::vector<unsigned int> getIndices() const { return this->indices; }
+
+        //void setVAO(unsigned int vao) { this->VAO = vao; }
+        unsigned int getVAO() const { return this->VAO; }
+
+        //void setVBO(unsigned int vbo) { this->VBO = vbo; }
+        unsigned int getVBO() const { return this->VBO; }
+
+        //void setEBO(unsigned int ebo) { this->EBO = ebo; }
+        unsigned int getEBO() const { return this->EBO; }
+};
+
 extern unsigned int uiProgram;
 
 extern int uiModelLoc, uiProjectionLoc;
+extern int uiTextModeLoc, uiTextColorLoc;
 
 extern std::vector<UIElement*> uiRoots;
 
@@ -137,3 +194,7 @@ void buildUIProgram();
 void beginUI();
 
 void endUI();
+
+Font bakeFont(const char* path, float pixelHeight);
+
+void layoutText(UIText& t);

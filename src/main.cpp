@@ -85,20 +85,27 @@ int main()
     
     // define lights
 
-    Light light1 = Light{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
-                        40.0f, 40.0f, 1.0f};
+    Light light1{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
+                 40.0f, 40.0f, 1.0f};
     lights.push_back(&light1);
 
-    Light light2 = Light{glm::vec3(5.0f, 7.0f, 0.0f), glm::vec3(1.0f, 0.0f, 1.0f),
-                        20.0f, 10.0f, 1.0f};
+    Light light2{glm::vec3(5.0f, 7.0f, 0.0f), glm::vec3(1.0f, 0.0f, 1.0f),
+                 20.0f, 10.0f, 1.0f};
     lights.push_back(&light2);
 
 
     // define ui
 
-    UIImage crosshair = UIImage{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "assets/ui/crosshair.png"};
+    UIImage crosshair{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "assets/ui/crosshair.png"};
 
     uiRoots.push_back(&crosshair);
+
+    Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
+
+    UIText textTest = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "Hello World",
+                             32.0f, &font, glm::vec3{1.0f}};
+    
+    uiRoots.push_back(&textTest);
 
 
     bakeSceneLighting();
@@ -120,6 +127,9 @@ int main()
         player.transform.yaw -= xoff * 0.05;
         camera.transform.pitch -= yoff * 0.05;
         camera.transform.pitch = std::clamp(camera.transform.pitch, -89.0f, 89.0f);
+
+        knight.transform.x += 0.1f * deltaTime;
+        knight.transform.yaw += 5.0f * deltaTime;
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
