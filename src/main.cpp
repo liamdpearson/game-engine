@@ -56,12 +56,6 @@ int main()
 
     // define objects
 
-    AnimatedMesh knight = makeAnimatedObj(Transform{0.0f, 5.0f, 2.0f, 90.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-            "assets/knight/knight.fbx", "assets/knight/knight.png", true);
-    
-    knight.SetAnimation(1);
-    rootObjs.push_back(&knight);
-
     StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
 
@@ -77,10 +71,20 @@ int main()
 
     player.addChild(&camera);
 
-    Mesh gun = makeObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-            "assets/gun/gun.obj", "assets/gun/gun.png", false);
+    AnimatedMesh glock = makeAnimatedObj(
+        Transform{0.1f, -0.15f, -0.2f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01},
+        "assets/glock/glock.fbx", "assets/glock/glock1.png", true
+    );
 
-    knight.addChild(&gun, knight.findBoneIndex("wrist_l"));
+    int ammo = 17;
+    
+    glock.SetAnimation(0);
+    camera.addChild(&glock);
+
+    // Mesh gun = makeObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    //         "assets/gun/gun.obj", "assets/gun/gun.png", false);
+
+    // knight.addChild(&gun, knight.findBoneIndex("wrist_l"));
 
     
     // define lights
@@ -127,9 +131,6 @@ int main()
         player.transform.yaw -= xoff * 0.05;
         camera.transform.pitch -= yoff * 0.05;
         camera.transform.pitch = std::clamp(camera.transform.pitch, -89.0f, 89.0f);
-
-        knight.transform.x += 0.1f * deltaTime;
-        knight.transform.yaw += 5.0f * deltaTime;
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
@@ -198,6 +199,26 @@ int main()
         }
 
         player.grounded = groundedAny;
+
+        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.currentAnim != 3) {
+            
+            if (ammo > 1) {
+                glock.SetAnimation(4, 0.05f, 0);
+                ammo--;
+            }
+            else if (ammo == 1) {
+                glock.SetAnimation(2, 0.05f, 1);
+                ammo--;
+            }
+            else {
+                glock.SetAnimation(5, 0.05f, 1);
+            }
+        }
+
+        if (keyPressed(GLFW_KEY_R)) {
+            glock.SetAnimation(3, 0.2f, 0);
+            ammo = 17;
+        }
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;

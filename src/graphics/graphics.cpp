@@ -264,7 +264,7 @@ void configureCamera(const Camera& cam)
     glm::mat4 projection = glm::perspective(
         glm::radians(cam.FOV),                            // fov
         (float)frameBuffWidth / (float)frameBuffHeight, // window aspect ratio
-        0.1f, 100.0f                                    // near and far clip dist
+        0.01f, 100.0f                                    // near and far clip dist
     );
 
     glm::mat4 view = glm::lookAt(
@@ -574,7 +574,7 @@ void AnimatedMesh::ComputePose()
     this->animTime += deltaTime;
     if (this->nextAnim != -1) {
         if (this->animations[this->currentAnim].duration - this->animTime <= 0) // if cur anim done
-            { this->SetAnimation(this->nextAnim, 0.5f); this->nextAnim = -1; }
+            { this->SetAnimation(this->nextAnim, 0.1f); this->nextAnim = -1; }
     }
     if (this->blendDuration > 0.0f) blendElapsed += deltaTime;
     std::vector<glm::mat4> palette;
