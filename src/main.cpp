@@ -72,12 +72,11 @@ int main()
     player.addChild(&camera);
 
     AnimatedMesh glock = makeAnimatedObj(
-        Transform{0.1f, -0.15f, -0.2f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01},
-        "assets/glock/glock.fbx", "assets/glock/glock1.png", true
+        Transform{0.1f, -0.125f, -0.2f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01},
+        "assets/glock/glocknhands.fbx", "assets/glock/glocknhands.png", true
     );
 
     int ammo = 17;
-    
     glock.SetAnimation(0);
     camera.addChild(&glock);
 
@@ -104,12 +103,12 @@ int main()
 
     uiRoots.push_back(&crosshair);
 
-    Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
+    // Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
 
-    UIText textTest = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "Hello World",
-                             32.0f, &font, glm::vec3{1.0f}};
+    // UIText textTest = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "Hello World",
+    //                          32.0f, &font, glm::vec3{1.0f}};
     
-    uiRoots.push_back(&textTest);
+    // uiRoots.push_back(&textTest);
 
 
     bakeSceneLighting();
@@ -200,23 +199,21 @@ int main()
 
         player.grounded = groundedAny;
 
-        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.currentAnim != 3) {
-            
+        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.currentAnim != 6) {
             if (ammo > 1) {
-                glock.SetAnimation(4, 0.05f, 0);
+                glock.SetAnimation(2, 0.05f, 0);
                 ammo--;
             }
             else if (ammo == 1) {
-                glock.SetAnimation(2, 0.05f, 1);
+                glock.SetAnimation(3, 0.05f, 1);
                 ammo--;
             }
             else {
-                glock.SetAnimation(5, 0.05f, 1);
+                glock.SetAnimation(4, 0.05f, 1);
             }
         }
 
         if (keyPressed(GLFW_KEY_R)) {
-            glock.SetAnimation(3, 0.2f, 0);
             ammo = 17;
         }
 

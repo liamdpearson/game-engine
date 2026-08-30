@@ -1,8 +1,20 @@
 # game-engine
-simple game engine meant to make games that look like half life one
+simple game engine meant to make games that look retro
 
 Current features:
 - Object hierarchy
 - Ability to have multiple cameras and draw from whichever you want
 - Light maps for static objects
-- Phong lighting for dynamic objects (will likely replace this with a light grid though)
+- Light grid for dynamic objects containing light value and dominant light direction
+- Animation support from fbx files
+- Mesh support from obj and fbx files
+- UI hierarchy with both image and text objects
+
+
+
+To DO:
+- Add draw boolean to objects and check for it in compose
+- Create another fbx loader for empty skeletons
+- Add sound with miniaudio
+- Add decals
+
