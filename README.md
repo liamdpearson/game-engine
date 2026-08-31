@@ -13,8 +13,6 @@ Current features:
 
 
 To DO:
-- Add draw boolean to objects and check for it in compose
-- Create another fbx loader for empty skeletons
 - Add sound with miniaudio
 - Add decals
 

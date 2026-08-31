@@ -44,6 +44,7 @@ class UIElement
         glm::mat3 world{1.0f};
 
     public:
+        bool draw = true;
         UITransform transform;
         std::vector<UIElement*> children;
         UIElement* parent = nullptr;

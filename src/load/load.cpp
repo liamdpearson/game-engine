@@ -121,7 +121,8 @@ static void loadFbxUnanimated(const char* path, std::vector<float>& outVerts,
     ufbx_scene* scene = ufbx_load_file(path, &opts, &error);
     if (!scene)
     {
-        std::cout << "Failed to load scene: " << error.description.data << '\n';
+        std::cout << "Failed to load scene. Path: " << path 
+                  << " Description: " << error.description.data << '\n';
         ufbx_free_scene(scene);
         return;
     }
@@ -276,8 +277,8 @@ static void loadObj(const char* path, std::vector<float>& outVerts,
     }
 }
 
-StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
-                         const char* texPath, bool pixelated, bool collides)
+StaticMesh makeStaticMesh(const Transform& transform, const char* objPath,
+                          const char* texPath, bool pixelated, bool collides)
 {   
     StaticMesh obj;
 
@@ -320,8 +321,8 @@ StaticMesh makeStaticObj(const Transform& transform, const char* objPath,
     return obj;
 }
 
-Mesh makeObj(const Transform& transform, const char* objPath,
-             const char* texPath, bool pixelated)
+Mesh makeMesh(const Transform& transform, const char* objPath,
+              const char* texPath, bool pixelated)
 {
     Mesh obj;
 
@@ -372,11 +373,11 @@ static float uintBits(uint32_t bits) {
     return f;
 }
 
-// loads .fbx file animated
-static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
-                            std::vector<unsigned int>& outIndices,
-                            Skeleton& outSkel,
-                            std::vector<Animation>& outAnims)
+// loads .fbx file and looks for animated meshes
+static void loadFbxAnimatedMesh(const char* path, std::vector<float>& outVerts,
+                                std::vector<unsigned int>& outIndices,
+                                Skeleton& outSkel,
+                                std::vector<Animation>& outAnims)
 {
     ufbx_load_opts opts = {}; // default options
     opts.target_axes = ufbx_axes_right_handed_y_up;
@@ -386,7 +387,8 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
     ufbx_scene* scene = ufbx_load_file(path, &opts, &error);
     if (!scene)
     {
-        std::cout << "Failed to load scene: " << error.description.data << '\n';
+        std::cout << "Failed to load scene. Path: " << path 
+                  << " Description: " << error.description.data << '\n';
         ufbx_free_scene(scene);
         return;
     }
@@ -555,8 +557,113 @@ static void loadFbxAnimated(const char* path, std::vector<float>& outVerts,
     ufbx_free_scene(scene);
 }
 
-AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
-                             const char* texPath, bool pixelated)
+// loads .fbx file and looks for non mesh armatures
+static void loadFbxAnimatedObj(const char* path,
+                              Skeleton& outSkel,
+                              std::vector<Animation>& outAnims)
+{
+    ufbx_load_opts opts = {}; // default options
+    opts.target_axes = ufbx_axes_right_handed_y_up;
+    opts.target_unit_meters = 1.0f;
+
+    ufbx_error error;
+    ufbx_scene* scene = ufbx_load_file(path, &opts, &error);
+    if (!scene)
+    {
+        std::cout << "Failed to load scene. Path: " << path 
+                  << " Description: " << error.description.data << '\n';
+        ufbx_free_scene(scene);
+        return;
+    }
+
+    // map of bone nodes to their indices
+    std::map<ufbx_node*, int> boneMap;
+    std::vector<ufbx_node*> boneNodes;
+
+    for (size_t i = 0; i < scene->nodes.count; ++i)
+    {
+        ufbx_node* node = scene->nodes.data[i];
+        ufbx_bone* bone = node->bone;
+        if (!bone) continue;
+
+        auto it = boneMap.find(node);
+        int bi;
+        if (it != boneMap.end()) {
+            bi = it->second;
+        } else {
+            bi = (int)outSkel.parent.size();
+            boneMap[node] = bi;
+
+            outSkel.parentWorld.push_back(node->parent
+                                          ? ufbxToGlm(node->parent->node_to_world)
+                                          : glm::mat4(1.0f));
+            outSkel.names.push_back(node ? std::string(node->name.data) : "");
+            outSkel.parent.push_back(-1);
+            boneNodes.push_back(node);
+        }
+    }
+
+    // loops through bone map and sets each bones parent
+    // now that all bones have been processed once already.
+    for (auto& bone : boneMap)
+    {
+        ufbx_node* boneNode = bone.first;
+        int bi = bone.second;
+        if (boneNode && boneNode->parent)
+        {
+            auto pit = boneMap.find(boneNode->parent);
+            if (pit != boneMap.end()) outSkel.parent[bi] = pit->second;
+        }
+    }
+
+    // gets pos, rot, and scale of each bone during each frame of each animation.
+    for (size_t si = 0; si < scene->anim_stacks.count && !boneNodes.empty(); ++si)
+    {
+        ufbx_anim_stack* stack = scene->anim_stacks.data[si];
+        ufbx_anim* anim = stack->anim;
+
+        float fps = 30.0f;
+        double t0 = stack->time_begin;
+        double t1 = stack->time_end;
+        double dur = t1 - t0;
+        int frames = (int)std::ceil(dur * fps) + 1;
+        if (frames < 1) frames = 1;
+
+        Animation out;
+        out.name = stack->name.data ? std::string(stack->name.data) : "";
+        out.fps = fps;
+        out.duration = (float)dur;
+        out.frameCount = frames;
+        out.tracks.resize(boneNodes.size());
+
+        for (int f = 0; f < frames; ++f)
+        {
+            double t = t0 + (frames > 1 ? dur * (double)f / (double)(frames - 1) : 0.0);
+            for (size_t b = 0; b < boneNodes.size(); ++b)
+            {
+                // get nodes local pos quat and scale for bone each frame
+                ufbx_transform lt = ufbx_evaluate_transform(anim, boneNodes[b], t);
+                out.tracks[b].pos.push_back(
+                    glm::vec3((float)lt.translation.x, (float)lt.translation.y, (float)lt.translation.z)
+                );
+                out.tracks[b].rot.push_back( // glm quat is (w, x, y, z)
+                    glm::quat((float)lt.rotation.w, (float)lt.rotation.x,
+                              (float)lt.rotation.y, (float)lt.rotation.z)
+                );
+                out.tracks[b].scale.push_back(
+                    glm::vec3((float)lt.scale.x, (float)lt.scale.y, (float)lt.scale.z)
+                );
+            }
+        }
+        std::cout << "Baked clip " << out.name << " frames: " 
+                  << out.frameCount << " duration: " << out.duration << std::endl;
+        outAnims.push_back(out);
+    }
+    ufbx_free_scene(scene);
+}
+
+AnimatedMesh makeAnimatedMesh(const Transform& transform, const char* objPath,
+                              const char* texPath, bool pixelated)
 {
     AnimatedMesh obj;
 
@@ -568,7 +675,7 @@ AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
     const char* file = strrchr(objPath, '.');
     if (file) {
         if (strcmp(file, ".fbx") == 0) {
-            loadFbxAnimated(objPath, verts, idx, skel, anims);
+            loadFbxAnimatedMesh(objPath, verts, idx, skel, anims);
         }
         else {
             std::cout << "File type not recognized: " << objPath << '\n';
@@ -577,6 +684,7 @@ AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
         std::cout << "No file type: " << objPath << '\n';
     }
     
+    Rig rig;
 
     obj.transform = transform;
     obj.setVertices(verts);
@@ -584,8 +692,39 @@ AnimatedMesh makeAnimatedObj(const Transform& transform, const char* objPath,
     obj.setTexture(loadTexture(texPath, pixelated));
     obj.setIndexCount((GLsizei)idx.size());
 
-    obj.setSkeleton(skel);
-    obj.animations = anims;
+    rig.skeleton = skel;
+    rig.animations = anims;
+
+    obj.rig = rig;
+
+    return obj;
+}
+
+AnimatedObj makeAnimatedObj(const Transform& transform, const char* objPath)
+{
+    AnimatedObj obj;
+
+    Skeleton skel;
+    std::vector<Animation> anims;
+
+    const char* file = strrchr(objPath, '.');
+    if (file) {
+        if (strcmp(file, ".fbx") == 0) {
+            loadFbxAnimatedObj(objPath, skel, anims);
+        }
+        else {
+            std::cout << "File type not recognized: " << objPath << '\n';
+        }
+    } else {
+        std::cout << "No file type: " << objPath << '\n';
+    }
+    
+    Rig rig;
+    obj.transform = transform;
+    rig.skeleton = skel;
+    rig.animations = anims;
+
+    obj.rig = rig;
 
     return obj;
 }

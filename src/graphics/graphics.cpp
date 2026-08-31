@@ -262,8 +262,8 @@ void configureCamera(const Camera& cam)
     glfwGetFramebufferSize(window, &frameBuffWidth, &frameBuffHeight);
 
     glm::mat4 projection = glm::perspective(
-        glm::radians(cam.FOV),                            // fov
-        (float)frameBuffWidth / (float)frameBuffHeight, // window aspect ratio
+        glm::radians(cam.FOV),                           // fov
+        (float)frameBuffWidth / (float)frameBuffHeight,  // window aspect ratio
         0.01f, 100.0f                                    // near and far clip dist
     );
 
@@ -417,6 +417,7 @@ static std::pair<glm::vec3, glm::vec3> gridLightAt(const glm::vec3& p)
 // if object is a mesh this will run.
 void Mesh::Draw()
 {
+    if (!draw) return;
     glUniform1i(lightModeLoc, 0);
 
     glm::mat4 w = this->getWorld();
@@ -441,6 +442,7 @@ void Mesh::Draw()
 // if object is a static mesh this will run.
 void StaticMesh::Draw()
 {
+    if (!draw) return;
     glUniform1i(lightModeLoc, 1);
 
     glm::mat4 w = this->getWorld();
@@ -491,40 +493,40 @@ static void sampleClip(const Animation& anim, float t, std::vector<BonePose>& ou
 
 // fills palette with each bone's skinning matrix, doesn't take
 // AnimatedMesh by const ref because it needs to set its lastPose
-static void computePose(AnimatedMesh& obj)
+static void computePose(Rig& rig)
 {
-    const Skeleton& sk = obj.getSkeleton();
-    int n = sk.inverseBind.size();
-    obj.palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
-    if (n == 0 || obj.currentAnim < 0 || obj.currentAnim >= (int)obj.animations.size())
+    const Skeleton& sk = rig.skeleton;
+    int n = sk.parent.size();
+    rig.palette.assign(n, glm::mat4(1.0f)); // fills palette with a bunch of I mats
+    if (n == 0 || rig.currentAnim < 0 || rig.currentAnim >= (int)rig.animations.size())
         return;
-    const Animation& anim = obj.animations[obj.currentAnim];
+    const Animation& anim = rig.animations[rig.currentAnim];
     if (anim.frameCount == 0) return;
 
     // sample clip and get each bone's pose
     std::vector<BonePose> pose(n);
-    sampleClip(anim, obj.animTime, pose);
+    sampleClip(anim, rig.animTime, pose);
 
-    if (obj.blendDuration > 0.0f && (int)obj.blendFrom.size() == n)
+    if (rig.blendDuration > 0.0f && (int)rig.blendFrom.size() == n)
     {
-        float along = std::clamp(obj.blendElapsed / obj.blendDuration, 0.0f, 1.0f);
+        float along = std::clamp(rig.blendElapsed / rig.blendDuration, 0.0f, 1.0f);
         for (int b = 0; b < n; ++b)
         {
-            pose[b].pos = glm::mix(obj.blendFrom[b].pos, pose[b].pos, along);
-            pose[b].rot = glm::slerp(obj.blendFrom[b].rot, pose[b].rot, along);
-            pose[b].scale = glm::mix(obj.blendFrom[b].scale, pose[b].scale, along);
+            pose[b].pos = glm::mix(rig.blendFrom[b].pos, pose[b].pos, along);
+            pose[b].rot = glm::slerp(rig.blendFrom[b].rot, pose[b].rot, along);
+            pose[b].scale = glm::mix(rig.blendFrom[b].scale, pose[b].scale, along);
         }
         if (along >= 1.0f) // fade finished
         {
-            obj.blendDuration = 0.0f;
-            obj.blendElapsed = 0.0f;
-            obj.blendFrom.clear();
+            rig.blendDuration = 0.0f;
+            rig.blendElapsed = 0.0f;
+            rig.blendFrom.clear();
         }
     }
 
     // remember what last went on screen so switching clips
     // mid blend starts from the pose the eye last saw.
-    obj.lastPose = pose;
+    rig.lastPose = pose;
 
     // now we convert from local pos, rot, scale to local matrix
     std::vector<glm::mat4> local(n);
@@ -565,20 +567,35 @@ static void computePose(AnimatedMesh& obj)
     }
 
     // palette = animated world * invbind
-    for (int b = 0; b < n; ++b) obj.palette[b] = world[b] * sk.inverseBind[b];
-    obj.boneWorlds = world;
+    if (sk.inverseBind.size() == size_t(n))
+        for (int b = 0; b < n; ++b) rig.palette[b] = world[b] * sk.inverseBind[b];
+    else
+        for (int b = 0; b < n; ++b) rig.palette[b] = world[b];
+    rig.boneWorlds = world;
 }
 
 void AnimatedMesh::ComputePose()
 {
-    this->animTime += deltaTime;
-    if (this->nextAnim != -1) {
-        if (this->animations[this->currentAnim].duration - this->animTime <= 0) // if cur anim done
-            { this->SetAnimation(this->nextAnim, 0.1f); this->nextAnim = -1; }
+    this->rig.animTime += deltaTime;
+    if (this->rig.nextAnim != -1) {
+        if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
+            { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
     }
-    if (this->blendDuration > 0.0f) blendElapsed += deltaTime;
-    std::vector<glm::mat4> palette;
-    computePose(*this);
+    if (this->rig.blendDuration > 0.0f) rig.blendElapsed += deltaTime;
+    computePose(this->rig);
+
+    Object::ComputePose();
+}
+
+void AnimatedObj::ComputePose()
+{
+    this->rig.animTime += deltaTime;
+    if (this->rig.nextAnim != -1) {
+        if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
+            { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
+    }
+    if (this->rig.blendDuration > 0.0f) rig.blendElapsed += deltaTime;
+    computePose(this->rig);
 
     Object::ComputePose();
 }
@@ -586,6 +603,7 @@ void AnimatedMesh::ComputePose()
 // if object is an animated mesh this will run.
 void AnimatedMesh::Draw()
 {
+    if (!draw) return;
     glUniform1i(lightModeLoc, 0);
 
     glm::mat4 w = this->getWorld();
@@ -601,8 +619,8 @@ void AnimatedMesh::Draw()
     glBindTexture(GL_TEXTURE_2D, this->getTexture());
     glUniform1i(texLoc, 0);
 
-    GLsizei count = (GLsizei)std::min((size_t)MAX_BONES, this->palette.size());
-    glUniformMatrix4fv(boneMatricesLoc, count, GL_FALSE, glm::value_ptr(this->palette[0]));
+    GLsizei count = (GLsizei)std::min((size_t)MAX_BONES, this->rig.palette.size());
+    glUniformMatrix4fv(boneMatricesLoc, count, GL_FALSE, glm::value_ptr(this->rig.palette[0]));
 
     glBindVertexArray(this->getVAO());
     glDrawElements(GL_TRIANGLES, this->getIndexCount(), GL_UNSIGNED_INT, 0);
@@ -610,7 +628,7 @@ void AnimatedMesh::Draw()
     Object::Draw();
 }
 
-void AnimatedMesh::SetAnimation(int index, float blendTime, int nextAnim)
+void Rig::SetAnimation(int index, float blendTime, int nextAnim)
 {
     if (index < 0 || index >= (int)animations.size()) return;
     
@@ -633,7 +651,7 @@ void AnimatedMesh::SetAnimation(int index, float blendTime, int nextAnim)
     this->nextAnim = nextAnim;
 }
 
-void AnimatedMesh::SetAnimation(const std::string& name, float blendTime, int nextAnim)
+void Rig::SetAnimation(const std::string& name, float blendTime, int nextAnim)
 {
     for (int i = 0; i < (int)animations.size(); ++i)
     {
@@ -644,26 +662,35 @@ void AnimatedMesh::SetAnimation(const std::string& name, float blendTime, int ne
     }
 }
 
-// recursive part of the compose walk.
+// calculates its own world matrix
+void Object::ComposeSelf()
+{
+    if (!this->parent) { this->world = this->transform.matrix(); return; }
+    
+    Rig* parentRig = boneIndex > -1 ? this->parent->GetRig() : nullptr;
+
+    if (parentRig && boneIndex < (int)parentRig->boneWorlds.size()) {
+        this->world = this->parent->getWorld()
+                    * parentRig->boneWorlds[boneIndex]
+                    * this->transform.matrix();
+    } else {
+        this->world = this->parent->getWorld() * this->transform.matrix();
+    }
+}
+
+// composes itself and then composes its children
 void Object::Compose()
 {
+    Object::ComposeSelf();
     for (Object*& child : children) child->Compose();
-
-    if (this->parent) {
-        if (boneIndex > -1) {
-            AnimatedMesh* par = static_cast<AnimatedMesh*>(this->parent);
-            this->world = this->parent->getWorld() * par->boneWorlds[boneIndex] * this->transform.matrix();
-        } else {
-            this->world = this->parent->getWorld() * this->transform.matrix();
-        }
-    }
-    else this->world = this->transform.matrix();
 }
 
 // if object is a camera this will run instead of Object::Compose.
-// sets pos, front, up and then calls Object::Compose on itself.
+// sets pos, front, up and does normal Compose stuff.
 void Camera::Compose()
 {   
+    Object::ComposeSelf();
+
     glm::mat4 world = this->getWorld();
     glm::mat3 basis(world);
 
@@ -671,7 +698,7 @@ void Camera::Compose()
     front = glm::normalize(basis * glm::vec3(0.0f, 0.0f, -1.0f));
     up    = glm::normalize(basis * glm::vec3(0.0f, 1.0f,  0.0f));
 
-    Object::Compose();
+    for (Object*& child : children) child->Compose();
 }
 
 // deletes VAO, VBO, EBO, and texture.

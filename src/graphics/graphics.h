@@ -75,6 +75,68 @@ struct TriAABB : Tri { AABB aabb; };
 // see definition in lighting.h.
 struct Light;
 
+// all vectors are of the same length bone owns each at its index
+struct Skeleton
+{
+    std::vector<glm::mat4> inverseBind;
+    std::vector<int> parent;
+    std::vector<std::string> names;
+    std::vector<glm::mat4> parentWorld;
+};
+
+struct BoneTrack
+{
+    std::vector<glm::vec3> pos;
+    std::vector<glm::quat> rot;
+    std::vector<glm::vec3> scale;
+};
+
+struct BonePose
+{
+    glm::vec3 pos{0.0f};
+    glm::quat rot{1.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec3 scale{1.0f};
+};
+
+struct Animation
+{
+    std::string name;
+    std::vector<BoneTrack> tracks;
+    int frameCount = 0;
+    float fps = 30.0f;
+    float duration = 0.0f; // seconds
+};
+
+struct Rig
+{
+    Skeleton skeleton;
+
+    std::vector<glm::mat4> palette;
+    std::vector<glm::mat4> boneWorlds;
+    std::vector<Animation> animations; // all clips baked from fbx
+    int currentAnim = -1;  // current animation index
+    float animTime = 0.0f; // seconds into current clip
+    int nextAnim = -1;     // animation set to play after current one done
+
+    // lastPose is updated every frame (what player last saw)
+    // blendFrom is empty unless currently fading between animations
+    std::vector<BonePose> lastPose;
+    std::vector<BonePose> blendFrom;
+    float blendDuration = 0.0f;
+    float blendElapsed = 0.0f;
+
+    void SetAnimation(int index, float blendTime = 0.0f, int nextAnim = -1);
+    void SetAnimation(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
+
+    int findBoneIndex(std::string name) {
+        for (int b = 0; b < (int)this->skeleton.names.size(); ++b) {
+            if (this->skeleton.names[b] == name) return b;
+        }
+        std::cout << "Couldn't find bone: " << name << '\n';
+        return -1;
+    }
+};
+
 // A node in the scene hierarchy can be an empty node, a camera, a mesh or a static mesh.
 class Object
 {
@@ -83,6 +145,7 @@ class Object
         int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
 
     public:
+        bool draw = true;
         Transform transform;
         std::vector<Object*> children;
         Object* parent = nullptr; // nullptr if root, points too parent object
@@ -93,7 +156,9 @@ class Object
 
         virtual void Upload();
         virtual void Compose();
+        void ComposeSelf();
         virtual void ComputePose();
+        virtual Rig* GetRig() { return nullptr; }
         virtual void Draw();
         virtual void CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out);
         virtual void CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out);
@@ -184,76 +249,16 @@ class StaticMesh : public Mesh
         ~StaticMesh() override;
 };
 
-// all vectors are of the same length bone owns each at its index
-struct Skeleton
-{
-    std::vector<glm::mat4> inverseBind;
-    std::vector<int> parent;
-    std::vector<std::string> names;
-    std::vector<glm::mat4> parentWorld;
-};
-
-struct BoneTrack
-{
-    std::vector<glm::vec3> pos;
-    std::vector<glm::quat> rot;
-    std::vector<glm::vec3> scale;
-};
-
-struct BonePose
-{
-    glm::vec3 pos{0.0f};
-    glm::quat rot{1.0f, 0.0f, 0.0f, 0.0f};
-    glm::vec3 scale{1.0f};
-};
-
-struct Animation
-{
-    std::string name;
-    std::vector<BoneTrack> tracks;
-    int frameCount = 0;
-    float fps = 30.0f;
-    float duration = 0.0f; // seconds
-};
-
 class AnimatedMesh : public Mesh
 {
-    private:
-        Skeleton skeleton;
-
     public:
-        std::vector<glm::mat4> palette;
-        std::vector<glm::mat4> boneWorlds;
-        std::vector<Animation> animations; // all clips baked from fbx
-        int currentAnim = -1;  // current animation index
-        float animTime = 0.0f; // seconds into current clip
-        int nextAnim = -1;     // animation set to play after current one done
-
-        // lastPose is updated every frame (what player last saw)
-        // blendFrom is empty unless currently fading between animations
-        std::vector<BonePose> lastPose;
-        std::vector<BonePose> blendFrom;
-        float blendDuration = 0.0f;
-        float blendElapsed = 0.0f;
+        Rig rig;
 
         AnimatedMesh() = default;
 
         void Draw() override;
         void ComputePose() override;
-
-        void SetAnimation(int index, float blendTime = 0.0f, int nextAnim = -1);
-        void SetAnimation(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
-
-        void setSkeleton(const Skeleton& skel) { this->skeleton = skel; }
-        Skeleton getSkeleton() const { return this->skeleton; }
-
-        int findBoneIndex(std::string name) {
-            for (int b = 0; b < (int)this->skeleton.names.size(); ++b) {
-                if (this->skeleton.names[b] == name) return b;
-            }
-            std::cout << "Couldn't find bone: " << name << '\n';
-            return -1;
-        }
+        Rig* GetRig() override { return &this->rig; } 
 
         void addChild(Object* child, int bi = -1) override {
             if (bi > -1)
@@ -262,6 +267,29 @@ class AnimatedMesh : public Mesh
             this->children.push_back(child);
             child->parent = this;
         }
+
+        ~AnimatedMesh() = default;
+};
+
+class AnimatedObj : public Object
+{
+    public:
+        Rig rig;
+
+        AnimatedObj() = default;
+
+        void ComputePose() override;
+        Rig* GetRig() override { return &this->rig; } 
+
+        void addChild(Object* child, int bi = -1) override {
+            if (bi > -1)
+                child->setBoneIndex(bi);
+
+            this->children.push_back(child);
+            child->parent = this;
+        }
+
+        ~AnimatedObj() = default;
 };
 
 // camera node containing pos, front, and up needed for configureCamera.

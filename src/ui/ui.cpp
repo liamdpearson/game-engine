@@ -294,6 +294,7 @@ void UIElement::DrawUI()
 
 void UIImage::DrawUI()
 {
+    if (!draw) return;
     glUniformMatrix3fv(uiModelLoc, 1, GL_FALSE, glm::value_ptr(this->getWorld()));
     glUniform1i(uiTextModeLoc, 0);
 
@@ -306,6 +307,7 @@ void UIImage::DrawUI()
 
 void UIText::DrawUI()
 {
+    if (!draw) return;
     if (!this->font || this->indices.empty()) { UIElement::DrawUI(); return; }
 
     glUniformMatrix3fv(uiModelLoc, 1, GL_FALSE, glm::value_ptr(this->getWorld()));

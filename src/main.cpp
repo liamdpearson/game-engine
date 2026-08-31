@@ -1,9 +1,10 @@
 #include "main.h"
 
-#include "graphics/graphics.h"
-#include "load/load.h"
-#include "lighting/lighting.h"
 #include "collisions/collisions.h"
+#include "graphics/graphics.h"
+#include "lighting/lighting.h"
+#include "load/load.h"
+#include "ui/ui.h"
 
 #include <iostream>
 
@@ -56,7 +57,7 @@ int main()
 
     // define objects
 
-    StaticMesh test = makeStaticObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    StaticMesh test = makeStaticMesh(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
 
     rootObjs.push_back(&test);
@@ -66,24 +67,26 @@ int main()
 
     rootObjs.push_back(&player);
 
-    Camera camera{90.0f, glm::vec3(0.0f, player.height - player.radius, 0.0f),
+    AnimatedObj camnhands = makeAnimatedObj(Transform{0.0f, player.height - player.radius, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+                                            "assets/glock/camnhandsmovement.fbx");
+    camnhands.rig.SetAnimation(0);
+    player.addChild(&camnhands);
+
+    Camera camera{90.0f, glm::vec3(0.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
 
-    player.addChild(&camera);
-
-    AnimatedMesh glock = makeAnimatedObj(
-        Transform{0.1f, -0.125f, -0.2f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01},
+    camnhands.addChild(&camera, camnhands.rig.findBoneIndex("cam"));
+    
+    // 0.1f, -0.125f, -0.2f
+    // 0.0f, -0.0425f, -0.2f
+    AnimatedMesh glock = makeAnimatedMesh(
+        Transform{0.0f, 0.0f, 0.0f, -90.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f},
         "assets/glock/glocknhands.fbx", "assets/glock/glocknhands.png", true
     );
-
     int ammo = 17;
-    glock.SetAnimation(0);
-    camera.addChild(&glock);
+    glock.rig.SetAnimation(0);
 
-    // Mesh gun = makeObj(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-    //         "assets/gun/gun.obj", "assets/gun/gun.png", false);
-
-    // knight.addChild(&gun, knight.findBoneIndex("wrist_l"));
+    camnhands.addChild(&glock, camnhands.rig.findBoneIndex("hands"));
 
     
     // define lights
@@ -128,8 +131,8 @@ int main()
 
         // update here
         player.transform.yaw -= xoff * 0.05;
-        camera.transform.pitch -= yoff * 0.05;
-        camera.transform.pitch = std::clamp(camera.transform.pitch, -89.0f, 89.0f);
+        camnhands.transform.pitch -= yoff * 0.05;
+        camnhands.transform.pitch = std::clamp(camnhands.transform.pitch, -89.0f, 89.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
@@ -199,21 +202,31 @@ int main()
 
         player.grounded = groundedAny;
 
-        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.currentAnim != 6) {
+        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.rig.currentAnim != 5) {
             if (ammo > 1) {
-                glock.SetAnimation(2, 0.05f, 0);
+                glock.rig.SetAnimation(2, 0.01f, 0);
                 ammo--;
             }
             else if (ammo == 1) {
-                glock.SetAnimation(3, 0.05f, 1);
+                glock.rig.SetAnimation(3, 0.01f, 1);
                 ammo--;
             }
             else {
-                glock.SetAnimation(4, 0.05f, 1);
+                glock.rig.SetAnimation(4, 0.05f, 1);
             }
         }
 
+        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_2)) {
+            camnhands.rig.SetAnimation(1, 0.1f);
+            crosshair.draw = false;
+        }
+        if (mouseButtonReleased(GLFW_MOUSE_BUTTON_2)) {
+            camnhands.rig.SetAnimation(0, 0.1f);
+            crosshair.draw = true;
+        }
+
         if (keyPressed(GLFW_KEY_R)) {
+            glock.rig.SetAnimation(5, 0.05f, 0);
             ammo = 17;
         }
 
@@ -223,7 +236,6 @@ int main()
         mouse_buttons_pressed = {}; mouse_buttons_released = {};
 
         for (Object*& obj : rootObjs) obj->ComputePose();
-        
         for (Object*& obj : rootObjs) obj->Compose();
 
         // render here
