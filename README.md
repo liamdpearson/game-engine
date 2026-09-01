@@ -16,4 +16,4 @@ Current features:
 To DO:
 - Add sound with miniaudio
 - Add decals
-- Add centerX and centerY variables to text objects and wire them up in layoutText.
+- Add some sort of particle system

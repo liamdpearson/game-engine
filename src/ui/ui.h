@@ -154,10 +154,14 @@ class UIText : public UIElement
         float size;
         Font* font = nullptr;
         glm::vec3 color{1.0f};
+        unsigned char anchorX = 'c';
+        unsigned char anchorY = 'c';
 
         UIText(const UITransform& transform, const std::string& text,
-               float size, Font* font, const glm::vec3& color)
-               : text(text), size(size), font(font), color(color)
+               float size, Font* font, const glm::vec3& color,
+               unsigned char anchorX, unsigned char anchorY)
+               : text(text), size(size), font(font),
+                 color(color), anchorX(anchorX), anchorY(anchorY)
         { this->transform = transform;}
         
         void UploadUI() override;

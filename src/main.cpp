@@ -55,6 +55,8 @@ int main()
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
 
+    int frames = 0;
+
     // define objects
 
     StaticMesh test = makeStaticMesh(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
@@ -102,17 +104,24 @@ int main()
 
 
     // define ui
-
+    
     UIImage crosshair{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "assets/ui/crosshair.png"};
 
     uiRoots.push_back(&crosshair);
-
-    // Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
-
-    // UIText textTest = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "Hello World",
-    //                          32.0f, &font, glm::vec3{1.0f}};
     
-    // uiRoots.push_back(&textTest);
+    // src, pixel height
+    Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
+    
+    // transform, text, size, font, color, anchorX, anchorY
+    UIText fps = UIText{UITransform{30, 30, 0.0f, 1.0f, 1.0f}, "",
+                         32.0f, &font, glm::vec3{1.0f}, 'l', 't'};
+    
+    uiRoots.push_back(&fps);
+
+    UIText testtext = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "This is a test\na     b   c\n\n123\n  123",
+                         64.0f, &font, glm::vec3(1.0f, 0.0f, 1.0f), 'c', 'c'};
+    
+    uiRoots.push_back(&testtext);
 
 
     bakeSceneLighting();
@@ -125,6 +134,8 @@ int main()
 
     while(!glfwWindowShouldClose(window))
     {
+        frames++;
+
         // calculate delta time
         currentFrame = (float)glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -176,8 +187,9 @@ int main()
         if (keyPressed(GLFW_KEY_SPACE) && player.grounded) {
             player.velocity.y += 5.0f;
         }
-    
-        if (glm::length(moveDir) > 0.0f) {
+        
+        float moveDirLen = glm::length(moveDir);
+        if (moveDirLen > 0.0f) {
             moveDir = glm::normalize(moveDir);
             walking = true;
         } else {
@@ -207,8 +219,8 @@ int main()
 
             if (player.grounded) groundedAny = true;
         }
-
         player.grounded = groundedAny;
+
 
         if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.rig.currentAnim != 5) {
             if (ammo > 1) {
@@ -258,6 +270,9 @@ int main()
         glBindVertexArray(0);
 
         beginUI();
+
+        if ((int)frames % 250 == 0)
+            fps.text = "FPS: " + std::to_string((int)(1/deltaTime));
         for (UIElement*& ui : uiRoots) ui->ComposeUI();
         for (UIElement*& ui : uiRoots) ui->DrawUI();
         endUI();

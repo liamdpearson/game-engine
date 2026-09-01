@@ -9,6 +9,7 @@
 #include <GLFW/glfw3.h>
 
 #include <fstream>
+#include <sstream>
 
 
 unsigned int uiProgram;
@@ -169,28 +170,74 @@ void layoutText(UIText& t)
 
     const Font& f = *t.font;
     float s = t.size / f.bakePixelHeight;
-    float baseY = f.ascent * s * 0.0f; // model matrix already applies transform.y
-    float penX = 0.0f;
 
-    for (size_t i = 0; i < t.text.size(); ++i)
+    std::istringstream stream(t.text);
+    std::vector<std::string> lines;
+    std::string line;
+
+    while(std::getline(stream, line))
+        lines.push_back(line);
+
+    int lineCount = lines.size();
+
+    float baseY = s;
+    switch (t.anchorY)
     {
-        unsigned char ch = t.text[i];
-        if (ch == '\n')
-        {
-            baseY += f.lineHeight * s;
-            penX = 0.0f;
-            continue;
-        }
-        if (ch < 32 || ch > 126) continue; // out of range skip it
+        case 'b':
+            baseY *= f.lineHeight * -(float)(lineCount) + f.ascent;
+            break;
 
-        const Glyph& g = t.font->glyphs[ch - 32];
-        if (g.w > 0 && g.h > 0)
+        case 'c':
+            baseY *= (f.lineHeight * -(float)(lineCount) + 2.0f*f.ascent) / 2.0f;
+            break;
+
+        default:
+            baseY *= f.ascent;
+            break;
+    }   
+
+    for (std::string& line : lines)
+    {
+        float lineLength = 0.0f;
+        for (unsigned char ch : line)
         {
-            float x0 = penX + g.xoff * s;
-            float y0 = baseY + g.yoff * s;
-            pushGlyphQuad(verts, idx, x0, y0, x0 + g.w * s, y0 + g.h * s, g);
+            if (ch < 32 || ch > 126) continue; // out of range skip it
+
+            const Glyph& g = t.font->glyphs[ch - 32];
+            lineLength += g.xadvance;
         }
-        penX += g.xadvance * s;
+
+        float penX = s;
+        switch (t.anchorX)
+        {
+            case 'r':
+                penX *= -lineLength;
+                break;
+
+            case 'c':
+                penX *= -lineLength / 2.0f;
+                break;
+
+            default:
+                penX *= 0.0f;
+                break;
+        }
+
+        for (unsigned char ch : line)
+        {
+            if (ch < 32 || ch > 126) continue; // out of range skip it
+
+            const Glyph& g = t.font->glyphs[ch - 32];
+            if (g.w > 0 && g.h > 0)
+            {
+                float x0 = penX + g.xoff * s;
+                float y0 = baseY + g.yoff * s;
+                pushGlyphQuad(verts, idx, x0, y0, x0 + g.w * s, y0 + g.h * s, g);
+            }
+            penX += g.xadvance * s;
+        }
+
+        baseY += f.lineHeight * s;
     }
 
     t.setVertices(verts);
