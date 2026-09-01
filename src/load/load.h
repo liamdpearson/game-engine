@@ -2,6 +2,7 @@
 
 #include "../graphics/graphics.h"
 
+
 StaticMesh makeStaticMesh(const Transform& transform, const char* objSrc,
                           const char* texSrc, bool pixelated, bool collides);
 

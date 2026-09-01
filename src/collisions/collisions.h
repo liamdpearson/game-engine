@@ -5,4 +5,3 @@
 void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colliders);
 
 void collectSceneColliders();
-

@@ -576,7 +576,7 @@ static void computePose(Rig& rig)
 
 void AnimatedMesh::ComputePose()
 {
-    this->rig.animTime += deltaTime;
+    this->rig.animTime += deltaTime * this->rig.animSpeed;
     if (this->rig.nextAnim != -1) {
         if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
             { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
@@ -589,7 +589,7 @@ void AnimatedMesh::ComputePose()
 
 void AnimatedObj::ComputePose()
 {
-    this->rig.animTime += deltaTime;
+    this->rig.animTime += deltaTime * this->rig.animSpeed;
     if (this->rig.nextAnim != -1) {
         if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
             { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }

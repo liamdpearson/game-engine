@@ -117,6 +117,7 @@ struct Rig
     int currentAnim = -1;  // current animation index
     float animTime = 0.0f; // seconds into current clip
     int nextAnim = -1;     // animation set to play after current one done
+    float animSpeed = 1.0f;
 
     // lastPose is updated every frame (what player last saw)
     // blendFrom is empty unless currently fading between animations

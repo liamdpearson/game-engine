@@ -7,6 +7,7 @@ Current features:
 - Light maps for static objects
 - Light grid for dynamic objects containing light value and dominant light direction
 - Animation support from fbx files
+- Bone parenting support for rigged objects
 - Mesh support from obj and fbx files
 - UI hierarchy with both image and text objects
 
@@ -15,4 +16,4 @@ Current features:
 To DO:
 - Add sound with miniaudio
 - Add decals
-
+- Add centerX and centerY variables to text objects and refactor layoutText to use them.

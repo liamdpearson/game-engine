@@ -68,8 +68,11 @@ int main()
     rootObjs.push_back(&player);
 
     AnimatedObj camnhands = makeAnimatedObj(Transform{0.0f, player.height - player.radius, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-                                            "assets/glock/camnhandsmovement.fbx");
+                                            "assets/glock/camhandsmovement.fbx");
+
     camnhands.rig.SetAnimation(0);
+    bool ads = false;
+    bool walking = false;
     player.addChild(&camnhands);
 
     Camera camera{90.0f, glm::vec3(0.0f, 0.0f, 0.0f),
@@ -77,10 +80,8 @@ int main()
 
     camnhands.addChild(&camera, camnhands.rig.findBoneIndex("cam"));
     
-    // 0.1f, -0.125f, -0.2f
-    // 0.0f, -0.0425f, -0.2f
     AnimatedMesh glock = makeAnimatedMesh(
-        Transform{0.0f, 0.0f, 0.0f, -90.0f, 0.0f, 0.0f, 0.1f, 0.1f, 0.1f},
+        Transform{0.0f, 0.0f, 0.0f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01f},
         "assets/glock/glocknhands.fbx", "assets/glock/glocknhands.png", true
     );
     int ammo = 17;
@@ -132,7 +133,7 @@ int main()
         // update here
         player.transform.yaw -= xoff * 0.05;
         camnhands.transform.pitch -= yoff * 0.05;
-        camnhands.transform.pitch = std::clamp(camnhands.transform.pitch, -89.0f, 89.0f);
+        camnhands.transform.pitch = std::clamp(camnhands.transform.pitch, -90.0f, 90.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
@@ -168,18 +169,25 @@ int main()
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
             acceleration *= 1.5f;
+            camnhands.rig.animSpeed = 1.5f;
+        } else {
+            camnhands.rig.animSpeed = 1.0f;
         }
         if (keyPressed(GLFW_KEY_SPACE) && player.grounded) {
             player.velocity.y += 5.0f;
         }
     
-        if (glm::length(moveDir) > 0.0f)
+        if (glm::length(moveDir) > 0.0f) {
             moveDir = glm::normalize(moveDir);
+            walking = true;
+        } else {
+            walking = false;
+        }
         
         player.velocity.y += -9.81f * deltaTime;
         if (player.velocity.y < -50.0f) player.velocity.y = -50.0f;
 
-        float damping = powf(0.005f, deltaTime);
+        float damping = powf(0.00005f, deltaTime);
         player.velocity.x *= damping;
         player.velocity.z *= damping;
         player.velocity += moveDir * acceleration;
@@ -217,18 +225,20 @@ int main()
         }
 
         if (mouseButtonPressed(GLFW_MOUSE_BUTTON_2)) {
-            camnhands.rig.SetAnimation(1, 0.1f);
-            crosshair.draw = false;
+            ads = true;  crosshair.draw = false;
         }
         if (mouseButtonReleased(GLFW_MOUSE_BUTTON_2)) {
-            camnhands.rig.SetAnimation(0, 0.1f);
-            crosshair.draw = true;
+            ads = false; crosshair.draw = true;
         }
 
-        if (keyPressed(GLFW_KEY_R)) {
+        if (keyPressed(GLFW_KEY_R) && glock.rig.currentAnim != 5) {
             glock.rig.SetAnimation(5, 0.05f, 0);
             ammo = 17;
         }
+
+        int shouldBe = walking + ads * 2;
+        if (camnhands.rig.currentAnim != shouldBe)
+            camnhands.rig.SetAnimation(shouldBe, 0.1f);
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
