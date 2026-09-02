@@ -13,6 +13,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <memory>
 
 
 const int VERTEX_FLOATS = 15;
@@ -148,7 +149,7 @@ class Object
     public:
         bool draw = true;
         Transform transform;
-        std::vector<Object*> children;
+        std::vector<std::unique_ptr<Object>> children;
         Object* parent = nullptr; // nullptr if root, points too parent object
         
         Object() = default;
@@ -171,11 +172,11 @@ class Object
         void setBoneIndex(int bi) { this->boneIndex = bi; }
         int getBoneIndex() const { return this->boneIndex; }
 
-        virtual void addChild(Object* child, int bi = -1) {
+        virtual void addChild(std::unique_ptr<Object> child, int bi = -1) {
             if (bi != -1)
                 std::cout << "Added bone index when adding child to non animated mesh." << '\n';
-            this->children.push_back(child);
             child->parent = this;
+            this->children.push_back(std::move(child));
         }
 
         virtual ~Object() = default;
@@ -261,12 +262,11 @@ class AnimatedMesh : public Mesh
         void ComputePose() override;
         Rig* GetRig() override { return &this->rig; } 
 
-        void addChild(Object* child, int bi = -1) override {
+        void addChild(std::unique_ptr<Object> child, int bi = -1) override {
             if (bi > -1)
                 child->setBoneIndex(bi);
-
-            this->children.push_back(child);
             child->parent = this;
+            this->children.push_back(std::move(child));
         }
 
         ~AnimatedMesh() = default;
@@ -282,12 +282,11 @@ class AnimatedObj : public Object
         void ComputePose() override;
         Rig* GetRig() override { return &this->rig; } 
 
-        void addChild(Object* child, int bi = -1) override {
+        void addChild(std::unique_ptr<Object> child, int bi = -1) override {
             if (bi > -1)
                 child->setBoneIndex(bi);
-
-            this->children.push_back(child);
             child->parent = this;
+            this->children.push_back(std::move(child));
         }
 
         ~AnimatedObj() = default;
@@ -352,7 +351,7 @@ class Capsule : public Object
 };
 
 // define scene variables
-extern std::vector<Object*> rootObjs;
+extern std::vector<std::unique_ptr<Object>> rootObjs;
 
 // lighting stuff
 extern std::vector<Light*> lights;
@@ -399,4 +398,4 @@ unsigned int loadTexture(const char* src, bool pixelated, bool clampEdge = false
 
 unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height);
 
-void configureCamera(const Camera& cam);
+void configureCamera(Camera*& cam);

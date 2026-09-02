@@ -277,10 +277,10 @@ static void loadObj(const char* path, std::vector<float>& outVerts,
     }
 }
 
-StaticMesh makeStaticMesh(const Transform& transform, const char* objPath,
+std::unique_ptr<StaticMesh> makeStaticMesh(const Transform& transform, const char* objPath,
                           const char* texPath, bool pixelated, bool collides)
 {   
-    StaticMesh obj;
+    auto obj = std::make_unique<StaticMesh>();
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
@@ -309,22 +309,22 @@ StaticMesh makeStaticMesh(const Transform& transform, const char* objPath,
     GenUV2(atlas, verts, idx, resolution);
     
 
-    obj.transform = transform;
-    obj.setVertices(verts);
-    obj.setIndices(idx);
-    obj.setTexture(loadTexture(texPath, pixelated));
-    obj.setIndexCount((GLsizei)idx.size());
+    obj->transform = transform;
+    obj->setVertices(verts);
+    obj->setIndices(idx);
+    obj->setTexture(loadTexture(texPath, pixelated));
+    obj->setIndexCount((GLsizei)idx.size());
 
-    obj.setAtlas(atlas);
-    obj.setCollides(collides);
+    obj->setAtlas(atlas);
+    obj->setCollides(collides);
     
     return obj;
 }
 
-Mesh makeMesh(const Transform& transform, const char* objPath,
+std::unique_ptr<Mesh> makeMesh(const Transform& transform, const char* objPath,
               const char* texPath, bool pixelated)
 {
-    Mesh obj;
+    auto obj = std::make_unique<Mesh>();
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
@@ -344,11 +344,11 @@ Mesh makeMesh(const Transform& transform, const char* objPath,
         std::cout << "No file type: " << objPath << '\n';
     }
 
-    obj.transform = transform;
-    obj.setVertices(verts);
-    obj.setIndices(idx);
-    obj.setTexture(loadTexture(texPath, pixelated));
-    obj.setIndexCount((GLsizei)idx.size());
+    obj->transform = transform;
+    obj->setVertices(verts);
+    obj->setIndices(idx);
+    obj->setTexture(loadTexture(texPath, pixelated));
+    obj->setIndexCount((GLsizei)idx.size());
 
     return obj;
 }
@@ -662,10 +662,10 @@ static void loadFbxAnimatedObj(const char* path,
     ufbx_free_scene(scene);
 }
 
-AnimatedMesh makeAnimatedMesh(const Transform& transform, const char* objPath,
+std::unique_ptr<AnimatedMesh> makeAnimatedMesh(const Transform& transform, const char* objPath,
                               const char* texPath, bool pixelated)
 {
-    AnimatedMesh obj;
+    auto obj = std::make_unique<AnimatedMesh>();
 
     std::vector<float> verts;
     std::vector<unsigned int> idx;
@@ -686,23 +686,23 @@ AnimatedMesh makeAnimatedMesh(const Transform& transform, const char* objPath,
     
     Rig rig;
 
-    obj.transform = transform;
-    obj.setVertices(verts);
-    obj.setIndices(idx);
-    obj.setTexture(loadTexture(texPath, pixelated));
-    obj.setIndexCount((GLsizei)idx.size());
+    obj->transform = transform;
+    obj->setVertices(verts);
+    obj->setIndices(idx);
+    obj->setTexture(loadTexture(texPath, pixelated));
+    obj->setIndexCount((GLsizei)idx.size());
 
     rig.skeleton = skel;
     rig.animations = anims;
 
-    obj.rig = rig;
+    obj->rig = rig;
 
     return obj;
 }
 
-AnimatedObj makeAnimatedObj(const Transform& transform, const char* objPath)
+std::unique_ptr<AnimatedObj> makeAnimatedObj(const Transform& transform, const char* objPath)
 {
-    AnimatedObj obj;
+    auto obj = std::make_unique<AnimatedObj>();
 
     Skeleton skel;
     std::vector<Animation> anims;
@@ -720,11 +720,11 @@ AnimatedObj makeAnimatedObj(const Transform& transform, const char* objPath)
     }
     
     Rig rig;
-    obj.transform = transform;
+    obj->transform = transform;
     rig.skeleton = skel;
     rig.animations = anims;
 
-    obj.rig = rig;
+    obj->rig = rig;
 
     return obj;
 }

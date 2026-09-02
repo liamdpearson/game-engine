@@ -58,19 +58,19 @@ static glm::vec3 closestPointOnSegment(const glm::vec3& p,
 
 static const float GROUND_NORMAL_Y = 0.7f;
 
-void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colliders)
+void resolveCapsuleCollision(Capsule*& capsule, const std::vector<TriAABB>& colliders)
 {
-    const float radiusSq = capsule.radius * capsule.radius;
-    capsule.grounded = false;
+    const float radiusSq = capsule->radius * capsule->radius;
+    capsule->grounded = false;
     // adjust multiple times per frame so if an adjustment pushes capsule into a
     // wall or something then it will fix itself before the player sees anything.
     for (int i = 0; i < 4; ++i)
     {
         // rebuild the player box for every adjustment
-        glm::vec3 feet(capsule.transform.x, capsule.transform.y, capsule.transform.z);
+        glm::vec3 feet(capsule->transform.x, capsule->transform.y, capsule->transform.z);
         AABB capsuleBox;
-        capsuleBox.min = feet - glm::vec3(capsule.radius, 0.0f, capsule.radius);
-        capsuleBox.max = feet + glm::vec3(capsule.radius, capsule.height, capsule.radius);
+        capsuleBox.min = feet - glm::vec3(capsule->radius, 0.0f, capsule->radius);
+        capsuleBox.max = feet + glm::vec3(capsule->radius, capsule->height, capsule->radius);
         capsuleBox.expand(0.1f);
 
         bool hitAny = false;
@@ -86,9 +86,9 @@ void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colli
             // doesnt sqrt until after the degen check for slight optimization.
             glm::vec3 faceNormal = rawNormal / glm::sqrt(normalLenSq);
 
-            glm::vec3 feet(capsule.transform.x, capsule.transform.y, capsule.transform.z);
-            glm::vec3 base = feet + glm::vec3(0.0f, capsule.radius, 0.0f);
-            glm::vec3 tip  = feet + glm::vec3(0.0f, capsule.height - capsule.radius, 0.0f);
+            glm::vec3 feet(capsule->transform.x, capsule->transform.y, capsule->transform.z);
+            glm::vec3 base = feet + glm::vec3(0.0f, capsule->radius, 0.0f);
+            glm::vec3 tip  = feet + glm::vec3(0.0f, capsule->height - capsule->radius, 0.0f);
             if (tip.y < base.y) tip = base; // degenerate to a sphere if capsule is wider than tall
 
 
@@ -122,27 +122,27 @@ void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colli
             {
                 float dist = glm::sqrt(distSq);
                 pushDir = delta / dist;
-                depth = capsule.radius - dist;
+                depth = capsule->radius - dist;
             } else {
                 // center of sphere is on the surface revert to
                 // normal because delta carries no direction.
                 pushDir = faceNormal;
-                depth = capsule.radius;
+                depth = capsule->radius;
             }
 
-            capsule.transform.y += pushDir.y * depth;
+            capsule->transform.y += pushDir.y * depth;
 
             if (pushDir.y > GROUND_NORMAL_Y) {
-                capsule.grounded = true;
+                capsule->grounded = true;
                 // only cancel the component of motion heading straight down into the surface
-                capsule.velocity.y -= pushDir.y * glm::min(0.0f, capsule.velocity.y * pushDir.y);
+                capsule->velocity.y -= pushDir.y * glm::min(0.0f, capsule->velocity.y * pushDir.y);
             } else {
                 // only push player on x and z if its not a ground tri
-                capsule.transform.x += pushDir.x * depth;
-                capsule.transform.z += pushDir.z * depth;
+                capsule->transform.x += pushDir.x * depth;
+                capsule->transform.z += pushDir.z * depth;
 
                 // cancel the component of motion heading into the surface
-                capsule.velocity -= pushDir * glm::min(0.0f, glm::dot(capsule.velocity, pushDir));
+                capsule->velocity -= pushDir * glm::min(0.0f, glm::dot(capsule->velocity, pushDir));
             }
 
             hitAny = true;
@@ -155,7 +155,7 @@ void resolveCapsuleCollision(Capsule& capsule, const std::vector<TriAABB>& colli
 void Object::CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out)
 {
     glm::mat4 w = parentWorld * transform.matrix();
-    for (Object*& child : children) child->CollectColliders(w, out);
+    for (std::unique_ptr<Object>& child : children) child->CollectColliders(w, out);
 }
 
 static AABB triBounds(const Tri& t)
@@ -192,7 +192,7 @@ void StaticMesh::CollectColliders(const glm::mat4 parentWorld, std::vector<TriAA
 
 void collectSceneColliders()
 {
-    for (Object*& obj : rootObjs) obj->CollectColliders(glm::mat4(1.0f), colliders);
+    for (std::unique_ptr<Object>& obj : rootObjs) obj->CollectColliders(glm::mat4(1.0f), colliders);
 }
 
 void Capsule::Compose()

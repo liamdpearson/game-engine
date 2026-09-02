@@ -116,37 +116,44 @@ int main()
 
     // define objects
 
-    StaticMesh test = makeStaticMesh(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    auto testU = makeStaticMesh(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
             "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
+    StaticMesh* test = testU.get();
+    rootObjs.push_back(std::move(testU));
 
-    rootObjs.push_back(&test);
+    auto playerU = std::make_unique<Capsule>(
+        Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+        1.8f, 0.3f
+    );
+    Capsule* player = playerU.get();
+    rootObjs.push_back(std::move(playerU));
 
-    Capsule player = Capsule{Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-                           1.8f, 0.3f};
-
-    rootObjs.push_back(&player);
-
-    AnimatedObj camnhands = makeAnimatedObj(Transform{0.0f, player.height - player.radius, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
+    auto camnhandsU = makeAnimatedObj(Transform{0.0f, player->height - player->radius, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
                                             "assets/glock/camhandsmovement.fbx");
+    AnimatedObj* camnhands = camnhandsU.get();
+    player->addChild(std::move(camnhandsU));
 
-    camnhands.rig.SetAnimation(0);
+    camnhands->rig.SetAnimation(0);
     bool ads = false;
     bool walking = false;
-    player.addChild(&camnhands);
-
-    Camera camera{90.0f, glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f)};
-
-    camnhands.addChild(&camera, camnhands.rig.findBoneIndex("cam"));
     
-    AnimatedMesh glock = makeAnimatedMesh(
+
+    auto cameraU = std::make_unique<Camera>(90.0f, glm::vec3(0.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    Camera* camera = cameraU.get();
+    camnhands->addChild(std::move(cameraU), camnhands->rig.findBoneIndex("cam"));
+    
+    auto glockU = makeAnimatedMesh(
         Transform{0.0f, 0.0f, 0.0f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01f},
         "assets/glock/glocknhands.fbx", "assets/glock/glocknhands.png", true
     );
-    int ammo = 17;
-    glock.rig.SetAnimation(0);
+    AnimatedMesh* glock = glockU.get();
+    camnhands->addChild(std::move(glockU), camnhands->rig.findBoneIndex("hands"));
 
-    camnhands.addChild(&glock, camnhands.rig.findBoneIndex("hands"));
+    int ammo = 17;
+    glock->rig.SetAnimation(0);
+
+    
 
     
     // define lights
@@ -184,10 +191,9 @@ int main()
     bakeSceneLighting();
     collectSceneColliders();
 
-    for (Object*& obj : rootObjs) obj->Upload();
+    for (std::unique_ptr<Object>& obj : rootObjs) obj->Upload();
     for (UIElement*& ui : uiRoots) ui->UploadUI();
     
-
 
     while(!glfwWindowShouldClose(window))
     {
@@ -199,9 +205,9 @@ int main()
         lastFrame = currentFrame;
 
         // update here
-        player.transform.yaw -= xoff * 0.05;
-        camnhands.transform.pitch -= yoff * 0.05;
-        camnhands.transform.pitch = std::clamp(camnhands.transform.pitch, -90.0f, 90.0f);
+        player->transform.yaw -= xoff * 0.05;
+        camnhands->transform.pitch -= yoff * 0.05;
+        camnhands->transform.pitch = std::clamp(camnhands->transform.pitch, -90.0f, 90.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
@@ -212,15 +218,15 @@ int main()
         glm::vec3 moveDir = glm::vec3(0.0f);
 
         glm::vec3 forward = glm::vec3(
-            -sin(glm::radians(player.transform.yaw)),
+            -sin(glm::radians(player->transform.yaw)),
             0.0f,
-            -cos(glm::radians(player.transform.yaw))
+            -cos(glm::radians(player->transform.yaw))
         );
 
         glm::vec3 right = glm::vec3(
-            -sin(glm::radians(player.transform.yaw + 90.0f)),
+            -sin(glm::radians(player->transform.yaw + 90.0f)),
             0.0f,
-            -cos(glm::radians(player.transform.yaw + 90.0f))
+            -cos(glm::radians(player->transform.yaw + 90.0f))
         );
         
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
@@ -237,12 +243,12 @@ int main()
         }
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
             acceleration *= 1.5f;
-            camnhands.rig.animSpeed = 1.5f;
+            camnhands->rig.animSpeed = 1.5f;
         } else {
-            camnhands.rig.animSpeed = 1.0f;
+            camnhands->rig.animSpeed = 1.0f;
         }
-        if (keyPressed(GLFW_KEY_SPACE) && player.grounded) {
-            player.velocity.y += 5.0f;
+        if (keyPressed(GLFW_KEY_SPACE) && player->grounded) {
+            player->velocity.y += 5.0f;
         }
         
         float moveDirLen = glm::length(moveDir);
@@ -253,43 +259,43 @@ int main()
             walking = false;
         }
         
-        player.velocity.y += -9.81f * deltaTime;
-        if (player.velocity.y < -50.0f) player.velocity.y = -50.0f;
+        player->velocity.y += -9.81f * deltaTime;
+        if (player->velocity.y < -50.0f) player->velocity.y = -50.0f;
 
         float damping = powf(0.00005f, deltaTime);
-        player.velocity.x *= damping;
-        player.velocity.z *= damping;
-        player.velocity += moveDir * acceleration;
+        player->velocity.x *= damping;
+        player->velocity.z *= damping;
+        player->velocity += moveDir * acceleration;
 
-        glm::vec3 step = player.velocity * deltaTime;
-        int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (player.radius * 0.5f)));
+        glm::vec3 step = player->velocity * deltaTime;
+        int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (player->radius * 0.5f)));
 
         bool groundedAny = false;
 
         for (int i = 0; i < substeps; ++i)
         {
-            player.transform.x += step.x / substeps;
-            player.transform.y += step.y / substeps;
-            player.transform.z += step.z / substeps;
+            player->transform.x += step.x / substeps;
+            player->transform.y += step.y / substeps;
+            player->transform.z += step.z / substeps;
 
             resolveCapsuleCollision(player, colliders);
 
-            if (player.grounded) groundedAny = true;
+            if (player->grounded) groundedAny = true;
         }
-        player.grounded = groundedAny;
+        player->grounded = groundedAny;
 
 
-        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock.rig.currentAnim != 5) {
+        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock->rig.currentAnim != 5) {
             if (ammo > 1) {
-                glock.rig.SetAnimation(2, 0.01f, 0);
+                glock->rig.SetAnimation(2, 0.01f, 0);
                 ammo--;
             }
             else if (ammo == 1) {
-                glock.rig.SetAnimation(3, 0.01f, 1);
+                glock->rig.SetAnimation(3, 0.01f, 1);
                 ammo--;
             }
             else {
-                glock.rig.SetAnimation(4, 0.05f, 1);
+                glock->rig.SetAnimation(4, 0.05f, 1);
             }
         }
 
@@ -300,22 +306,22 @@ int main()
             ads = false; crosshair.draw = true;
         }
 
-        if (keyPressed(GLFW_KEY_R) && glock.rig.currentAnim != 5) {
-            glock.rig.SetAnimation(5, 0.05f, 0);
+        if (keyPressed(GLFW_KEY_R) && glock->rig.currentAnim != 5) {
+            glock->rig.SetAnimation(5, 0.05f, 0);
             ammo = 17;
         }
 
         int shouldBe = walking + ads * 2;
-        if (camnhands.rig.currentAnim != shouldBe)
-            camnhands.rig.SetAnimation(shouldBe, 0.1f);
+        if (camnhands->rig.currentAnim != shouldBe)
+            camnhands->rig.SetAnimation(shouldBe, 0.1f);
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
         keys_pressed = {}; keys_released = {};
         mouse_buttons_pressed = {}; mouse_buttons_released = {};
 
-        for (Object*& obj : rootObjs) obj->ComputePose();
-        for (Object*& obj : rootObjs) obj->Compose();
+        for (std::unique_ptr<Object>& obj : rootObjs) obj->ComputePose();
+        for (std::unique_ptr<Object>& obj : rootObjs) obj->Compose();
 
         // render here
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -323,7 +329,7 @@ int main()
         glUseProgram(shaderProgram);
         configureCamera(camera);
 
-        for (Object*& obj : rootObjs) obj->Draw();
+        for (std::unique_ptr<Object>& obj : rootObjs) obj->Draw();
         glBindVertexArray(0);
 
         beginUI();

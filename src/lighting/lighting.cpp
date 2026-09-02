@@ -127,7 +127,7 @@ std::pair<glm::vec3, glm::vec3> sampleLightAndDir(const glm::vec3& p)
 void Object::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out)
 {
     glm::mat4 world = parentWorld * transform.matrix();
-    for (Object*& child : children) child->CollectOccluders(world, out);
+    for (std::unique_ptr<Object>& child : children) child->CollectOccluders(world, out);
 }
 
 // collects occluders from the static mesh and then calls Object::CollectOccluders.
@@ -160,7 +160,7 @@ void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>&
 void Object::BakeLighting(const glm::mat4 parentWorld)
 {
     glm::mat4 world = parentWorld * transform.matrix();
-    for (Object*& child : children) child->BakeLighting(world);
+    for (std::unique_ptr<Object>& child : children) child->BakeLighting(world);
 }
 
 static float cross2D(const glm::vec2& a, const glm::vec2& b)
@@ -339,12 +339,12 @@ void bakeSceneLighting()
 {
     double start = glfwGetTime();
 
-    for (Object*& obj : rootObjs)
+    for (std::unique_ptr<Object>& obj : rootObjs)
         obj->CollectOccluders(glm::mat4(1.0f), occluders);
     
     std::cout << "baked " << occluders.size() << " occluder Tris"  << '\n';
 
-    for (Object*& obj : rootObjs)
+    for (std::unique_ptr<Object>& obj : rootObjs)
         obj->BakeLighting(glm::mat4(1.0f));
 
     for (const Tri& tri : occluders)

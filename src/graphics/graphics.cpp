@@ -13,10 +13,11 @@
 #include <iostream>
 #include <algorithm>
 #include <string>
+#include <memory>
 
 
 // define scene variables
-std::vector<Object*> rootObjs;
+std::vector<std::unique_ptr<Object>> rootObjs;
 
 // define opengl variables
 GLFWwindow* window;
@@ -256,21 +257,21 @@ unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height)
 
 // creates proj and view matrices for the camera and sends them to shader locations.
 // takes in cam as an argument so a scene can have multiple cameras.
-void configureCamera(const Camera& cam)
+void configureCamera(Camera*& cam)
 {
     int frameBuffWidth, frameBuffHeight;
     glfwGetFramebufferSize(window, &frameBuffWidth, &frameBuffHeight);
 
     glm::mat4 projection = glm::perspective(
-        glm::radians(cam.FOV),                           // fov
+        glm::radians(cam->FOV),                          // fov
         (float)frameBuffWidth / (float)frameBuffHeight,  // window aspect ratio
         0.01f, 100.0f                                    // near and far clip dist
     );
 
     glm::mat4 view = glm::lookAt(
-        cam.getPos(),
-        cam.getPos() + cam.getFront(),
-        cam.getUp()
+        cam->getPos(),
+        cam->getPos() + cam->getFront(),
+        cam->getUp()
     );
 
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
@@ -279,7 +280,7 @@ void configureCamera(const Camera& cam)
 
 void Object::Upload()
 {
-    for (Object*& child : children)
+    for (std::unique_ptr<Object>& child : children)
         child->Upload();
 }
 
@@ -334,7 +335,7 @@ void Camera::Upload()
 // recursive part of the draw walk.
 void Object::Draw()
 {
-    for (Object*& child : children)
+    for (std::unique_ptr<Object>& child : children)
         child->Draw();
 }
 
@@ -466,7 +467,7 @@ void StaticMesh::Draw()
 
 void Object::ComputePose()
 {
-    for (Object*& child : children) child->ComputePose();
+    for (std::unique_ptr<Object>& child : children) child->ComputePose();
 }
 
 // calculates the pose of each bone given the values at each frame and time
@@ -682,7 +683,7 @@ void Object::ComposeSelf()
 void Object::Compose()
 {
     Object::ComposeSelf();
-    for (Object*& child : children) child->Compose();
+    for (std::unique_ptr<Object>& child : children) child->Compose();
 }
 
 // if object is a camera this will run instead of Object::Compose.
@@ -698,7 +699,7 @@ void Camera::Compose()
     front = glm::normalize(basis * glm::vec3(0.0f, 0.0f, -1.0f));
     up    = glm::normalize(basis * glm::vec3(0.0f, 1.0f,  0.0f));
 
-    for (Object*& child : children) child->Compose();
+    for (std::unique_ptr<Object>& child : children) child->Compose();
 }
 
 // deletes VAO, VBO, EBO, and texture.
