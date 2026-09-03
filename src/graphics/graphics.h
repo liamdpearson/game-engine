@@ -417,3 +417,6 @@ unsigned int loadTexture(const char* src, bool pixelated, bool clampEdge = false
 unsigned int loadLightMap(std::vector<glm::vec3>& pixels, int width, int height);
 
 void configureCamera(Camera*& cam);
+
+Object* findObject(const std::string& name,
+                   const std::vector<std::unique_ptr<Object>>& objs);

@@ -1,2 +1,4 @@
 build*/
-app.exe
+game.exe
+debug.exe
+gamedbg.exe

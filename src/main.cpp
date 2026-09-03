@@ -1,5 +1,6 @@
 #include "collisions/collisions.h"
 #include "graphics/graphics.h"
+#include "input/input.h"
 #include "lighting/lighting.h"
 #include "load/load.h"
 #include "ui/ui.h"
@@ -7,88 +8,6 @@
 #include <iostream>
 #include <algorithm>
 
-
-std::vector<int> keys_pressed;
-std::vector<int> mouse_buttons_pressed;
-
-std::vector<int> keys_released;
-std::vector<int> mouse_buttons_released;
-
-float lastX, lastY;
-float xPos, yPos;
-float xoff, yoff;
-bool firstMouse = true;
-
-void mouseMoveCallback(GLFWwindow*, double xpos, double ypos)
-{
-    if (firstMouse) {
-        lastX = (float)xpos; lastY = (float)ypos;
-        xPos = (float)xpos; yPos = (float)ypos;
-        firstMouse = false;
-    } else {
-        lastX = xPos; lastY = yPos;
-        xPos = xpos; yPos = ypos;
-
-        xoff += xPos - lastX;
-        yoff += lastY - yPos;
-    }
-}
-
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    if (action == GLFW_PRESS) keys_pressed.push_back(key);
-    if (action == GLFW_RELEASE) keys_released.push_back(key);
-}
-
-bool keyPressed(int key)
-{
-    return std::find(keys_pressed.begin(), keys_pressed.end(), key) != keys_pressed.end();
-}
-
-bool keyReleased(int key)
-{
-    return std::find(keys_released.begin(), keys_released.end(), key) != keys_released.end();
-}
-
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-    if (action == GLFW_PRESS) mouse_buttons_pressed.push_back(button);
-    if (action == GLFW_RELEASE) mouse_buttons_released.push_back(button);
-}
-
-bool mouseButtonPressed(int button)
-{
-    return std::find(mouse_buttons_pressed.begin(), mouse_buttons_pressed.end(), button) != mouse_buttons_pressed.end();
-}
-
-bool mouseButtonReleased(int button)
-{
-    return std::find(mouse_buttons_released.begin(), mouse_buttons_released.end(), button) != mouse_buttons_released.end();
-}
-
-Object* findObject(const std::string& name,
-                   const std::vector<std::unique_ptr<Object>>& objs)
-{
-    for (const std::unique_ptr<Object>& obj : objs)
-    {
-        if (obj->getName() == name) return obj.get();
-        Object* found = findObject(name, obj->children);
-        if (found) return found;
-    }
-    return nullptr;
-}
-
-UIElement* findUIElement(const std::string& name,
-                         const std::vector<std::unique_ptr<UIElement>>& elements)
-{
-    for (const std::unique_ptr<UIElement>& ui : elements)
-    {
-        if (ui->getName() == name) return ui.get();
-        UIElement* found = findUIElement(name, ui->children);
-        if (found) return found;
-    }
-    return nullptr;
-}
 
 int main()
 {
@@ -154,13 +73,17 @@ int main()
     UIElement* ch = findUIElement("crosshair", uiRoots);
     UIImage* crosshair = dynamic_cast<UIImage*>(ch);
 
-    if (!player || !camnhands || !glock || !camera || !crosshair) {
+    UIElement* f = findUIElement("fps", uiRoots);
+    UIText* fps = dynamic_cast<UIText*>(f);
+
+    if (!player || !camnhands || !glock || !camera || !crosshair || !fps) {
         std::cout << "Scene lookup failed:"
                   << " player=" << player
                   << " camnhands=" << camnhands
                   << " glock=" << glock
                   << " camera=" << camera
-                  << " crosshair=" << crosshair << '\n';
+                  << " crosshair=" << crosshair
+                  << " fps=" << fps << '\n';
         return -1;
     }
 
@@ -171,6 +94,8 @@ int main()
     bool ads = false;
     int ammo = 17;
 
+    int frames = 0;
+
     bakeSceneLighting();
     collectSceneColliders();
 
@@ -180,6 +105,7 @@ int main()
 
     while(!glfwWindowShouldClose(window))
     {
+        frames++;
         // calculate delta time
         currentFrame = (float)glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -314,8 +240,10 @@ int main()
         glBindVertexArray(0);
 
         beginUI();
+
         for (std::unique_ptr<UIElement>& ui : uiRoots) ui->ComposeUI();
         for (std::unique_ptr<UIElement>& ui : uiRoots) ui->DrawUI();
+
         endUI();
         
         glfwSwapBuffers(window);

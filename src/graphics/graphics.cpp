@@ -278,6 +278,18 @@ void configureCamera(Camera*& cam)
     glUniformMatrix4fv(viewLoc,       1, GL_FALSE, glm::value_ptr(view));
 }
 
+Object* findObject(const std::string& name,
+                   const std::vector<std::unique_ptr<Object>>& objs)
+{
+    for (const std::unique_ptr<Object>& obj : objs)
+    {
+        if (obj->getName() == name) return obj.get();
+        Object* found = findObject(name, obj->children);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
 void Object::Upload()
 {
     for (std::unique_ptr<Object>& child : children)

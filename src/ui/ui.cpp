@@ -245,6 +245,18 @@ void layoutText(UIText& t)
     t.setIndices(idx);
 }
 
+UIElement* findUIElement(const std::string& name,
+                         const std::vector<std::unique_ptr<UIElement>>& elements)
+{
+    for (const std::unique_ptr<UIElement>& ui : elements)
+    {
+        if (ui->getName() == name) return ui.get();
+        UIElement* found = findUIElement(name, ui->children);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
 void UIElement::UploadUI()
 {
     for (std::unique_ptr<UIElement>& child : children) child->UploadUI();

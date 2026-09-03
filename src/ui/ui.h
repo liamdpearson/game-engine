@@ -220,3 +220,6 @@ void endUI();
 Font bakeFont(const char* path, float pixelHeight);
 
 void layoutText(UIText& t);
+
+UIElement* findUIElement(const std::string& name,
+                         const std::vector<std::unique_ptr<UIElement>>& elements);
