@@ -1,5 +1,5 @@
 build*/
-game.exe
-debug.exe
-gamedbg.exe
+rel.exe
+dbg.exe
+reldbg.exe
 commands.txt
