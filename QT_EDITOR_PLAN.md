@@ -2,6 +2,13 @@
 
 Plan for learning Qt and building a scene editor for this engine.
 
+## Target
+
+A Qt desktop editor with an **embedded scene preview** — add, delete, select and transform
+objects in place — where pressing **Play** launches the game in a **separate OpenGL window**
+running `app.exe` as a child process. Editor and runtime stay two programs sharing one
+`engine` library. See [Milestone 8](#milestone-8--the-play-test-launcher).
+
 ## Framing
 
 Qt is the easy half. The engine currently has no scene *data* — the scene is built as
@@ -23,8 +30,10 @@ and native file dialogs for free.
 | Phase 0.1 — `main.h` globals removed | **Done** (file deleted; globals now live in `main.cpp`) |
 | Phase 0.2 — `unique_ptr` ownership | **Done** — factories return `unique_ptr`, `rootObjs`/`children` converted, engine runs |
 | Phase 0.2 — scene serialization | **Not started — resume here** |
-| Phase 0.3 — decouple GLFW | Not started |
+| Phase 0.2 — `app.exe` scene path via `argv[1]` | Not started |
+| Phase 0.3 — decouple GLFW (engine stops owning the window) | Not started |
 | Phase 1+ — Qt | Not started |
+| Phase 3 milestone 8 — Play button (`QProcess`) | Not started |
 
 ---
 
@@ -73,9 +82,12 @@ The actual gate. Requirements:
   `Capsule`, or `Camera`. *(Todo.)*
 - **`saveScene(path)` / `loadScene(path)`** — JSON is fine. Write the loader in the engine
   so `app` does not depend on Qt; the editor side can use `QJsonDocument`. *(Todo.)*
+- **`app.exe` takes a scene path as `argv[1]`**, defaulting to the stock scene when absent.
+  This is what makes play-test possible — the editor launches the runtime pointed at a file
+  it just wrote. Cheap to add now, annoying to retrofit. *(Todo.)*
 
 **Success criterion:** delete the hardcoded scene from `main.cpp`, replace it with
-`loadScene("assets/test.scene")`, and the game runs identically.
+`loadScene(argc > 1 ? argv[1] : "assets/test.scene")`, and the game runs identically.
 
 Sketch of the loader shape:
 
@@ -90,13 +102,19 @@ rootObjs.push_back(std::move(obj));
 
 ### 0.3 Decouple rendering from GLFW
 
-`graphics.cpp` owns a global `GLFWwindow* window` and `SW`/`SH`, and `lighting.cpp:340`
-calls `glfwGetTime()`. For the viewport to live inside a Qt widget the engine must not
-create its own window.
+Note the scope here is narrower than the heading suggests: **GLFW is not going away.**
+`app.exe` keeps it forever, because `app.exe` *is* the play-test window. The goal is only
+that the engine stop *assuming* it owns the window, so the same draw code can also run
+inside a `QOpenGLWidget`. Two hosts, one renderer.
 
-- Pass viewport dimensions into the draw call instead of reading globals.
-- Get time from `std::chrono` rather than `glfwGetTime()`.
-- Route input through a small struct the host (GLFW *or* Qt) fills in.
+The actual offenders:
+
+- `graphics.cpp:263` — `glfwGetFramebufferSize(window, ...)` reading the global
+  `GLFWwindow* window` plus `SW`/`SH`. Pass viewport dimensions into the draw call instead.
+- `lighting.cpp:340` — `glfwGetTime()`. Use `std::chrono`.
+- Input: route through a small struct the host (GLFW *or* Qt) fills in.
+
+Everything else can stay as it is.
 
 ---
 
@@ -143,19 +161,55 @@ signal/slot syntax changed.
 |---|---|---|
 | 1 | Qt app opens the `.scene` JSON and shows objects in a read-only `QTreeView` | model/view |
 | 2 | Inspector panel: click an object, get spinboxes for its `Transform` | widgets, signals |
-| 3 | Edit + save; `app.exe` launched separately picks up the change | round-trip |
+| 3 | Edit + save; `app.exe` launched by hand picks up the change | round-trip (play-test, manually) |
 | 4 | Everything routed through `QUndoCommand`, `Ctrl+Z` works | undo architecture |
 | 5 | `QOpenGLWidget` viewport rendering the scene live | GL embedding |
 | 6 | Editor camera (WASD/orbit), click-to-select via ray pick | reuses `collisions.cpp` |
 | 7 | Translate/rotate gizmo, add/delete objects, asset browser | the real editor |
+| 8 | **Play button** — spawns `app.exe` in its own window on the current scene | `QProcess`, editor/runtime split |
 
 Milestone 3 is already a genuinely usable tool. Do not skip ahead to the viewport.
+
+### Milestone 8 — the play-test launcher
+
+The end goal: the Qt editor previews the scene in an embedded viewport, but pressing **Play**
+launches a *separate* OpenGL window running the real engine. Mechanically:
+
+1. Serialize the current editor state to a scratch file — `build/.playtest.scene`, **not**
+   the user's scene file. Play-test must never overwrite unsaved work, and the user should
+   be able to hit Play on a dirty scene without a save prompt.
+2. `QProcess::start("app.exe", {scratchPath})`. Requires the `argv[1]` support from 0.2.
+3. Stop button wired to `QProcess::kill()`, and disable Play while a child is alive so you
+   cannot end up with six runtime windows fighting over the keyboard.
+4. Connect `readyReadStandardOutput`/`readyReadStandardError` to a console dock. The
+   runtime's stdout is invisible once it is a child process, and that is exactly when you
+   need it most.
+5. On `finished`, re-enable Play and report a non-zero exit code in the console.
+
+Nothing here depends on the viewport, so milestone 8 can in principle be done right after
+milestone 3 — that combination (tree + inspector + Play) is a real workflow on its own.
+
+### Why the separate process is the right call
+
+It looks like the lazy option; it is actually the better architecture.
+
+- The Qt viewport's GL context and the runtime's GL context never touch. No context
+  sharing, no shared-resource lifetime rules, no "which context is current" bugs.
+- A crash mid-playtest kills the child, not the editor — unsaved scene state survives.
+- The runtime stays completely Qt-free. `app.exe` is shippable as the game; the editor is
+  a separate tool that happens to link the same `engine` library.
+- Consequently the `defaultFramebufferObject()` gotcha below applies **only** to the editor
+  viewport. `app.exe` renders to framebuffer 0 exactly as it does today.
+
+The cost is that play-test is not instant — it is a process launch plus a scene load — and
+there is no live "edit while playing." That trade is worth it.
 
 ---
 
 ## Two OpenGL gotchas that will each cost an afternoon
 
-**`QOpenGLWidget` does not render to framebuffer 0.** It renders into an FBO it owns. Any
+**`QOpenGLWidget` does not render to framebuffer 0.** (Editor viewport only — `app.exe` is
+unaffected.) It renders into an FBO it owns. Any
 engine code doing `glBindFramebuffer(GL_FRAMEBUFFER, 0)` to "return to the screen" draws
 into the void. Use `QOpenGLWidget::defaultFramebufferObject()` — make the engine take the
 default FBO id as a parameter rather than hardcoding `0`.

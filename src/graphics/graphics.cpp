@@ -109,7 +109,7 @@ void main()
 
         vec3 diff = max(dot(n, L), 0.0) * objectLight;
 
-        lit = objectLight * 0.5f + diff * 0.5f;
+        lit = objectLight * 0.9f + diff * 0.1f;
     }
     else if (lightMode == 1)
     {
@@ -353,21 +353,28 @@ static size_t gridIndex(int x, int y, int z, int ny, int nz)
 // values in the light grid that make up the cube around the point.
 static std::pair<glm::vec3, glm::vec3> gridLightAt(const glm::vec3& p)
 {
+    const std::vector<std::pair<glm::vec3, glm::vec3>>& values = lightGrid.values;
+    const glm::vec3& min = lightGrid.min; const glm::vec3& max = lightGrid.max;
+
+    if (values.empty()) {
+        return std::pair<glm::vec3, glm::vec3>{glm::vec3{ambient}, glm::vec3{0.0f}};
+    }
+
     // the grid holds one sample per unit, from min to max inclusive.
-    int nx = (int)maxX - (int)minX + 1;
-    int ny = (int)maxY - (int)minY + 1;
-    int nz = (int)maxZ - (int)minZ + 1;
+    int nx = (int)max.x - (int)min.x + 1;
+    int ny = (int)max.y - (int)min.y + 1;
+    int nz = (int)max.z - (int)min.z + 1;
 
     // nothing baked yet (or a grid that doesn't match the bounds box), so
     // fall back to flat ambient with no direction.
-    if (nx < 1 || ny < 1 || nz < 1 || lightGrid.size() != (size_t)nx * ny * nz)
+    if (nx < 1 || ny < 1 || nz < 1 || values.size() != (size_t)nx * ny * nz)
         return std::pair<glm::vec3, glm::vec3>{glm::vec3(ambient), glm::vec3(0.0f)};
 
     // position relative to the corner of the bounds box, clamped inside it
     // so points outside the scene just use the nearest samples.
-    float fx = glm::clamp(p.x - minX, 0.0f, (float)(nx - 1));
-    float fy = glm::clamp(p.y - minY, 0.0f, (float)(ny - 1));
-    float fz = glm::clamp(p.z - minZ, 0.0f, (float)(nz - 1));
+    float fx = glm::clamp(p.x - min.x, 0.0f, (float)(nx - 1));
+    float fy = glm::clamp(p.y - min.y, 0.0f, (float)(ny - 1));
+    float fz = glm::clamp(p.z - min.z, 0.0f, (float)(nz - 1));
 
     // low corner of the cube around p. held one short of the last sample so
     // the high corner is always in range, and both collapse if an axis only
@@ -394,18 +401,18 @@ static std::pair<glm::vec3, glm::vec3> gridLightAt(const glm::vec3& p)
     size_t i111 = gridIndex(x1, y1, z1, ny, nz);
 
     // blend the corner colors along x, then y, then z.
-    glm::vec3 lit00 = glm::mix(lightGrid[i000].first, lightGrid[i100].first, tx);
-    glm::vec3 lit10 = glm::mix(lightGrid[i010].first, lightGrid[i110].first, tx);
-    glm::vec3 lit01 = glm::mix(lightGrid[i001].first, lightGrid[i101].first, tx);
-    glm::vec3 lit11 = glm::mix(lightGrid[i011].first, lightGrid[i111].first, tx);
+    glm::vec3 lit00 = glm::mix(values[i000].first, values[i100].first, tx);
+    glm::vec3 lit10 = glm::mix(values[i010].first, values[i110].first, tx);
+    glm::vec3 lit01 = glm::mix(values[i001].first, values[i101].first, tx);
+    glm::vec3 lit11 = glm::mix(values[i011].first, values[i111].first, tx);
     glm::vec3 lit = glm::mix(glm::mix(lit00, lit10, ty), glm::mix(lit01, lit11, ty), tz);
 
     // same blend for the directions. each corner points at whatever lit it
     // most, so the weighted average of the 8 is the dominant direction here.
-    glm::vec3 dir00 = glm::mix(lightGrid[i000].second, lightGrid[i100].second, tx);
-    glm::vec3 dir10 = glm::mix(lightGrid[i010].second, lightGrid[i110].second, tx);
-    glm::vec3 dir01 = glm::mix(lightGrid[i001].second, lightGrid[i101].second, tx);
-    glm::vec3 dir11 = glm::mix(lightGrid[i011].second, lightGrid[i111].second, tx);
+    glm::vec3 dir00 = glm::mix(values[i000].second, values[i100].second, tx);
+    glm::vec3 dir10 = glm::mix(values[i010].second, values[i110].second, tx);
+    glm::vec3 dir01 = glm::mix(values[i001].second, values[i101].second, tx);
+    glm::vec3 dir11 = glm::mix(values[i011].second, values[i111].second, tx);
     glm::vec3 dir = glm::mix(glm::mix(dir00, dir10, ty), glm::mix(dir01, dir11, ty), tz);
 
     // averaging unit vectors doesn't give a unit vector, and corners that

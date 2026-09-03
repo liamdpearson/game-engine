@@ -192,6 +192,7 @@ void StaticMesh::CollectColliders(const glm::mat4 parentWorld, std::vector<TriAA
 
 void collectSceneColliders()
 {
+    colliders.clear();
     for (std::unique_ptr<Object>& obj : rootObjs) obj->CollectColliders(glm::mat4(1.0f), colliders);
 }
 

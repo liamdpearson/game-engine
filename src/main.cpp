@@ -112,208 +112,132 @@ int main()
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
 
-    int frames = 0;
-
-    // define objects
-
-    auto testU = makeStaticMesh(Transform{0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-            "assets/testing_zone/testing_zone.obj", "assets/testing_zone/testing_zone.png", true, true);
-    StaticMesh* test = testU.get();
-    rootObjs.push_back(std::move(testU));
-
-    auto playerU = std::make_unique<Capsule>(
-        Transform{0.0f, 5.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-        1.8f, 0.3f
-    );
-    Capsule* player = playerU.get();
-    rootObjs.push_back(std::move(playerU));
-
-    auto camnhandsU = makeAnimatedObj(Transform{0.0f, player->height - player->radius, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f},
-                                            "assets/glock/camhandsmovement.fbx");
-    AnimatedObj* camnhands = camnhandsU.get();
-    player->addChild(std::move(camnhandsU));
-
-    camnhands->rig.SetAnimation(0);
-    bool ads = false;
-    bool walking = false;
-    
-
-    auto cameraU = std::make_unique<Camera>(90.0f, glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, -1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    Camera* camera = cameraU.get();
-    camnhands->addChild(std::move(cameraU), camnhands->rig.findBoneIndex("cam"));
-    
-    auto glockU = makeAnimatedMesh(
-        Transform{0.0f, 0.0f, 0.0f, 180.0f, 0.0f, 0.0f, 0.01f, 0.01f, 0.01f},
-        "assets/glock/glocknhands.fbx", "assets/glock/glocknhands.png", true
-    );
-    AnimatedMesh* glock = glockU.get();
-    camnhands->addChild(std::move(glockU), camnhands->rig.findBoneIndex("hands"));
-
-    int ammo = 17;
-    glock->rig.SetAnimation(0);
-
-    
-
-    
-    // define lights
-
-    Light light1{glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f),
-                 40.0f, 40.0f, 1.0f};
-    lights.push_back(&light1);
-
-    Light light2{glm::vec3(5.0f, 7.0f, 0.0f), glm::vec3(1.0f, 0.0f, 1.0f),
-                 20.0f, 10.0f, 1.0f};
-    lights.push_back(&light2);
-
-
-    // define ui
-    
-    UIImage crosshair{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "assets/ui/crosshair.png"};
-
-    uiRoots.push_back(&crosshair);
-    
-    // src, pixel height
-    Font font = bakeFont("assets/fonts/terminal.ttf", 32.0f);
-    
-    // transform, text, size, font, color, anchorX, anchorY
-    UIText fps = UIText{UITransform{30, 30, 0.0f, 1.0f, 1.0f}, "",
-                         32.0f, &font, glm::vec3{1.0f}, 'l', 't'};
-    
-    uiRoots.push_back(&fps);
-
-    UIText testtext = UIText{UITransform{SW/2, SH/2, 0.0f, 1.0f, 1.0f}, "This is a test\na     b   c\n\n123\n  123",
-                         64.0f, &font, glm::vec3(1.0f, 0.0f, 1.0f), 'c', 'c'};
-    
-    uiRoots.push_back(&testtext);
-
+    loadScene("assets/scenes/scene1.json");
 
     bakeSceneLighting();
     collectSceneColliders();
 
     for (std::unique_ptr<Object>& obj : rootObjs) obj->Upload();
-    for (UIElement*& ui : uiRoots) ui->UploadUI();
+    for (std::unique_ptr<UIElement>& ui : uiRoots) ui->UploadUI();
     
 
     while(!glfwWindowShouldClose(window))
     {
-        frames++;
-
         // calculate delta time
         currentFrame = (float)glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         // update here
-        player->transform.yaw -= xoff * 0.05;
-        camnhands->transform.pitch -= yoff * 0.05;
-        camnhands->transform.pitch = std::clamp(camnhands->transform.pitch, -90.0f, 90.0f);
+        // player->transform.yaw -= xoff * 0.05;
+        // camnhands->transform.pitch -= yoff * 0.05;
+        // camnhands->transform.pitch = std::clamp(camnhands->transform.pitch, -90.0f, 90.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
             glfwSetWindowShouldClose(window, true);
         }
 
-        float acceleration = 30.0f * deltaTime;
+        // float acceleration = 30.0f * deltaTime;
 
-        glm::vec3 moveDir = glm::vec3(0.0f);
+        // glm::vec3 moveDir = glm::vec3(0.0f);
 
-        glm::vec3 forward = glm::vec3(
-            -sin(glm::radians(player->transform.yaw)),
-            0.0f,
-            -cos(glm::radians(player->transform.yaw))
-        );
+        // glm::vec3 forward = glm::vec3(
+        //     -sin(glm::radians(player->transform.yaw)),
+        //     0.0f,
+        //     -cos(glm::radians(player->transform.yaw))
+        // );
 
-        glm::vec3 right = glm::vec3(
-            -sin(glm::radians(player->transform.yaw + 90.0f)),
-            0.0f,
-            -cos(glm::radians(player->transform.yaw + 90.0f))
-        );
+        // glm::vec3 right = glm::vec3(
+        //     -sin(glm::radians(player->transform.yaw + 90.0f)),
+        //     0.0f,
+        //     -cos(glm::radians(player->transform.yaw + 90.0f))
+        // );
         
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            moveDir += forward;
-        }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            moveDir -= forward;
-        }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            moveDir += right;
-        }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            moveDir -= right;
-        }
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
-            acceleration *= 1.5f;
-            camnhands->rig.animSpeed = 1.5f;
-        } else {
-            camnhands->rig.animSpeed = 1.0f;
-        }
-        if (keyPressed(GLFW_KEY_SPACE) && player->grounded) {
-            player->velocity.y += 5.0f;
-        }
+        // if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        //     moveDir += forward;
+        // }
+        // if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        //     moveDir -= forward;
+        // }
+        // if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        //     moveDir += right;
+        // }
+        // if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        //     moveDir -= right;
+        // }
+        // if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+        //     acceleration *= 1.5f;
+        //     camnhands->rig.animSpeed = 1.5f;
+        // } else {
+        //     camnhands->rig.animSpeed = 1.0f;
+        // }
+        // if (keyPressed(GLFW_KEY_SPACE) && player->grounded) {
+        //     player->velocity.y += 5.0f;
+        // }
         
-        float moveDirLen = glm::length(moveDir);
-        if (moveDirLen > 0.0f) {
-            moveDir = glm::normalize(moveDir);
-            walking = true;
-        } else {
-            walking = false;
-        }
+        // float moveDirLen = glm::length(moveDir);
+        // if (moveDirLen > 0.0f) {
+        //     moveDir = glm::normalize(moveDir);
+        //     walking = true;
+        // } else {
+        //     walking = false;
+        // }
         
-        player->velocity.y += -9.81f * deltaTime;
-        if (player->velocity.y < -50.0f) player->velocity.y = -50.0f;
+        // player->velocity.y += -9.81f * deltaTime;
+        // if (player->velocity.y < -50.0f) player->velocity.y = -50.0f;
 
-        float damping = powf(0.00005f, deltaTime);
-        player->velocity.x *= damping;
-        player->velocity.z *= damping;
-        player->velocity += moveDir * acceleration;
+        // float damping = powf(0.00005f, deltaTime);
+        // player->velocity.x *= damping;
+        // player->velocity.z *= damping;
+        // player->velocity += moveDir * acceleration;
 
-        glm::vec3 step = player->velocity * deltaTime;
-        int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (player->radius * 0.5f)));
+        // glm::vec3 step = player->velocity * deltaTime;
+        // int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (player->radius * 0.5f)));
 
-        bool groundedAny = false;
+        // bool groundedAny = false;
 
-        for (int i = 0; i < substeps; ++i)
-        {
-            player->transform.x += step.x / substeps;
-            player->transform.y += step.y / substeps;
-            player->transform.z += step.z / substeps;
+        // for (int i = 0; i < substeps; ++i)
+        // {
+        //     player->transform.x += step.x / substeps;
+        //     player->transform.y += step.y / substeps;
+        //     player->transform.z += step.z / substeps;
 
-            resolveCapsuleCollision(player, colliders);
+        //     resolveCapsuleCollision(player, colliders);
 
-            if (player->grounded) groundedAny = true;
-        }
-        player->grounded = groundedAny;
+        //     if (player->grounded) groundedAny = true;
+        // }
+        // player->grounded = groundedAny;
 
 
-        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock->rig.currentAnim != 5) {
-            if (ammo > 1) {
-                glock->rig.SetAnimation(2, 0.01f, 0);
-                ammo--;
-            }
-            else if (ammo == 1) {
-                glock->rig.SetAnimation(3, 0.01f, 1);
-                ammo--;
-            }
-            else {
-                glock->rig.SetAnimation(4, 0.05f, 1);
-            }
-        }
+        // if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock->rig.currentAnim != 5) {
+        //     if (ammo > 1) {
+        //         glock->rig.SetAnimation(2, 0.01f, 0);
+        //         ammo--;
+        //     }
+        //     else if (ammo == 1) {
+        //         glock->rig.SetAnimation(3, 0.01f, 1);
+        //         ammo--;
+        //     }
+        //     else {
+        //         glock->rig.SetAnimation(4, 0.05f, 1);
+        //     }
+        // }
 
-        if (mouseButtonPressed(GLFW_MOUSE_BUTTON_2)) {
-            ads = true;  crosshair.draw = false;
-        }
-        if (mouseButtonReleased(GLFW_MOUSE_BUTTON_2)) {
-            ads = false; crosshair.draw = true;
-        }
+        // if (mouseButtonPressed(GLFW_MOUSE_BUTTON_2)) {
+        //     ads = true;  crosshair->draw = false;
+        // }
+        // if (mouseButtonReleased(GLFW_MOUSE_BUTTON_2)) {
+        //     ads = false; crosshair->draw = true;
+        // }
 
-        if (keyPressed(GLFW_KEY_R) && glock->rig.currentAnim != 5) {
-            glock->rig.SetAnimation(5, 0.05f, 0);
-            ammo = 17;
-        }
+        // if (keyPressed(GLFW_KEY_R) && glock->rig.currentAnim != 5) {
+        //     glock->rig.SetAnimation(5, 0.05f, 0);
+        //     ammo = 17;
+        // }
 
-        int shouldBe = walking + ads * 2;
-        if (camnhands->rig.currentAnim != shouldBe)
-            camnhands->rig.SetAnimation(shouldBe, 0.1f);
+        // int shouldBe = walking + ads * 2;
+        // if (camnhands->rig.currentAnim != shouldBe)
+        //     camnhands->rig.SetAnimation(shouldBe, 0.1f);
 
         // reset global input indicators
         xoff = 0.0f; yoff = 0.0f;
@@ -327,17 +251,14 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(shaderProgram);
-        configureCamera(camera);
+        // configureCamera(camera);
 
         for (std::unique_ptr<Object>& obj : rootObjs) obj->Draw();
         glBindVertexArray(0);
 
         beginUI();
-
-        if ((int)frames % 250 == 0)
-            fps.text = "FPS: " + std::to_string((int)(1/deltaTime));
-        for (UIElement*& ui : uiRoots) ui->ComposeUI();
-        for (UIElement*& ui : uiRoots) ui->DrawUI();
+        for (std::unique_ptr<UIElement>& ui : uiRoots) ui->ComposeUI();
+        for (std::unique_ptr<UIElement>& ui : uiRoots) ui->DrawUI();
         endUI();
         
         glfwSwapBuffers(window);

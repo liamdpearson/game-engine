@@ -72,9 +72,23 @@ struct AABB
 
 struct TriAABB : Tri { AABB aabb; };
 
-// initialized here so compiler is happy when I declare BakeLighting.
-// see definition in lighting.h.
-struct Light;
+// scene light used only in lighting bake
+struct Light
+{
+    std::string name;
+    std::string tag;
+    glm::vec3 pos;
+    glm::vec3 color;
+    float intensity;
+    float radius;
+    float falloff;
+};
+
+struct LightGrid
+{
+    std::vector<std::pair<glm::vec3, glm::vec3>> values;
+    glm::vec3 min{INFINITY}, max{-INFINITY};
+};
 
 // all vectors are of the same length bone owns each at its index
 struct Skeleton
@@ -145,6 +159,9 @@ class Object
     private:
         glm::mat4 world = glm::mat4(1.0f);
         int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
+        std::string name;
+        std::string type;
+        std::string tag;
 
     public:
         bool draw = true;
@@ -171,6 +188,15 @@ class Object
 
         void setBoneIndex(int bi) { this->boneIndex = bi; }
         int getBoneIndex() const { return this->boneIndex; }
+
+        void setName(std::string n) { this->name = n; }
+        std::string getName() const { return this->name; }
+
+        void setType(std::string t) { this->type = t; }
+        std::string getType() const { return this->type; }
+
+        void setTag(std::string t) { this->tag = t; }
+        std::string getTag() const { return this->tag; }
 
         virtual void addChild(std::unique_ptr<Object> child, int bi = -1) {
             if (bi != -1)
@@ -242,7 +268,7 @@ class StaticMesh : public Mesh
         void setLightMap(const unsigned int& lm) { this->lightMap = lm; }
         unsigned int getLightMap() const { return this->lightMap; }
         
-        void setAtlas(xatlas::Atlas*& at) { this->atlas = at; }
+        void setAtlas(xatlas::Atlas* at) { this->atlas = at; }
         xatlas::Atlas* getAtlas() const { return this->atlas; }
 
         void setCollides(bool c) { this->collides = c; }
@@ -297,23 +323,15 @@ class AnimatedObj : public Object
 class Camera : public Object
 {
     private:
-        glm::vec3 pos;
-        glm::vec3 front;
-        glm::vec3 up;
+        glm::vec3 pos{0.0f, 0.0f, 0.0f};
+        glm::vec3 front{0.0f, 0.0f, -1.0f};
+        glm::vec3 up{0.0f, 1.0f, 0.0f};
 
     public:
         float FOV;
 
-        Camera(const float FOV, const glm::vec3 pos,
-               glm::vec3 front, glm::vec3 up)
-        : pos(pos), front(front), up(up), FOV(FOV)
-        {
-            // Compose() recomputes pos/front/up from `transform` every frame,
-            // so the transform (not just the fields above) must encode position.
-            transform.x = pos.x;
-            transform.y = pos.y;
-            transform.z = pos.z;
-        }
+        Camera(const Transform& t, const float FOV)
+        : FOV(FOV) { transform = t; }
 
         void Upload() override;
         void Compose() override; // derives pos/front/up from world
@@ -354,10 +372,10 @@ class Capsule : public Object
 extern std::vector<std::unique_ptr<Object>> rootObjs;
 
 // lighting stuff
-extern std::vector<Light*> lights;
+extern std::vector<Light> lights;
 extern float ambient;
 extern std::vector<Tri> occluders;
-extern std::vector<std::pair<glm::vec3, glm::vec3>> lightGrid;
+extern LightGrid lightGrid;
 
 // for finding the bounds box of the scene for light grid
 extern float minX;

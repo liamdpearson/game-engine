@@ -42,12 +42,19 @@ class UIElement
 {
     private:
         glm::mat3 world{1.0f};
+        std::string name;
+        std::string type;
+        std::string tag;
 
     public:
         bool draw = true;
         UITransform transform;
-        std::vector<UIElement*> children;
+        std::vector<std::unique_ptr<UIElement>> children;
         UIElement* parent = nullptr;
+
+        UIElement() = default;
+        UIElement(const UITransform& t)
+            : transform(t) {}
 
         virtual void UploadUI();
         virtual void ComposeUI();
@@ -56,9 +63,18 @@ class UIElement
         void setWorld(const glm::mat3& world) { this->world = world; }
         glm::mat3 getWorld() const  { return this->world; }
 
-        void addChild(UIElement* child) {
-            this->children.push_back(child);
+        void setName(std::string n) { this->name = n; }
+        std::string getName() const { return this->name; }
+
+        void setType(std::string t) { this->type = t; }
+        std::string getType() const { return this->type; }
+
+        void setTag(std::string t) { this->tag = t; }
+        std::string getTag() const { return this->tag; }
+
+        void addChild(std::unique_ptr<UIElement> child) {
             child->parent = this;
+            this->children.push_back(std::move(child));
         }
 
         virtual ~UIElement() = default;
@@ -152,15 +168,15 @@ class UIText : public UIElement
     public:
         std::string text;
         float size;
-        Font* font = nullptr;
+        int fontIndex = -1;
         glm::vec3 color{1.0f};
         unsigned char anchorX = 'c';
         unsigned char anchorY = 'c';
 
         UIText(const UITransform& transform, const std::string& text,
-               float size, Font* font, const glm::vec3& color,
+               float size, int fontIndex, const glm::vec3& color,
                unsigned char anchorX, unsigned char anchorY)
-               : text(text), size(size), font(font),
+               : text(text), size(size), fontIndex(fontIndex),
                  color(color), anchorX(anchorX), anchorY(anchorY)
         { this->transform = transform;}
         
@@ -189,7 +205,8 @@ extern unsigned int uiProgram;
 extern int uiModelLoc, uiProjectionLoc;
 extern int uiTextModeLoc, uiTextColorLoc;
 
-extern std::vector<UIElement*> uiRoots;
+extern std::vector<std::unique_ptr<UIElement>> uiRoots;
+extern std::vector<Font> fonts;
 
 extern const char* uiVertShader;
 extern const char* uiFragShader;

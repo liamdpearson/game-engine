@@ -17,7 +17,8 @@ unsigned int uiProgram;
 int uiModelLoc, uiProjectionLoc;
 int uiTextModeLoc, uiTextColorLoc;
 
-std::vector<UIElement*> uiRoots;
+std::vector<std::unique_ptr<UIElement>> uiRoots;
+std::vector<Font> fonts;
 
 const char* uiVertShader = R"glsl(
 #version 330 core
@@ -166,9 +167,9 @@ void layoutText(UIText& t)
     std::vector<float> verts;
     std::vector<unsigned int> idx;
 
-    if (!t.font) return;
+    if (t.fontIndex < 0 || (size_t)t.fontIndex >= fonts.size()) return;
 
-    const Font& f = *t.font;
+    const Font& f = fonts[t.fontIndex];
     float s = t.size / f.bakePixelHeight;
 
     std::istringstream stream(t.text);
@@ -203,7 +204,7 @@ void layoutText(UIText& t)
         {
             if (ch < 32 || ch > 126) continue; // out of range skip it
 
-            const Glyph& g = t.font->glyphs[ch - 32];
+            const Glyph& g = f.glyphs[ch - 32];
             lineLength += g.xadvance;
         }
 
@@ -227,7 +228,7 @@ void layoutText(UIText& t)
         {
             if (ch < 32 || ch > 126) continue; // out of range skip it
 
-            const Glyph& g = t.font->glyphs[ch - 32];
+            const Glyph& g = f.glyphs[ch - 32];
             if (g.w > 0 && g.h > 0)
             {
                 float x0 = penX + g.xoff * s;
@@ -246,7 +247,7 @@ void layoutText(UIText& t)
 
 void UIElement::UploadUI()
 {
-    for (UIElement*& child : children) child->UploadUI();
+    for (std::unique_ptr<UIElement>& child : children) child->UploadUI();
 }
 
 void UIImage::UploadUI()
@@ -310,7 +311,7 @@ void UIElement::ComposeUI()
                   ? this->parent->getWorld() * this->transform.matrix()
                   : this->transform.matrix();
     
-    for (UIElement*& child : this->children) child->ComposeUI();
+    for (std::unique_ptr<UIElement>& child : children) child->ComposeUI();
 }
 
 void UIText::ComposeUI()
@@ -336,7 +337,7 @@ void UIText::ComposeUI()
 
 void UIElement::DrawUI()
 {
-    for (UIElement*& child : this->children) child->DrawUI();
+    for (std::unique_ptr<UIElement>& child : children) child->DrawUI();
 }
 
 void UIImage::DrawUI()
@@ -355,13 +356,14 @@ void UIImage::DrawUI()
 void UIText::DrawUI()
 {
     if (!draw) return;
-    if (!this->font || this->indices.empty()) { UIElement::DrawUI(); return; }
+    if (this->fontIndex < 0 || (size_t)this->fontIndex >= fonts.size() || this->indices.empty())
+    { UIElement::DrawUI(); return; }
 
     glUniformMatrix3fv(uiModelLoc, 1, GL_FALSE, glm::value_ptr(this->getWorld()));
     glUniform1i(uiTextModeLoc, 1);
     glUniform3fv(uiTextColorLoc, 1, glm::value_ptr(this->color));
 
-    glBindTexture(GL_TEXTURE_2D, this->font->atlas);
+    glBindTexture(GL_TEXTURE_2D, fonts[fontIndex].atlas);
     glBindVertexArray(this->VAO);
     glDrawElements(GL_TRIANGLES, (GLsizei)this->indices.size(), GL_UNSIGNED_INT, 0);
 

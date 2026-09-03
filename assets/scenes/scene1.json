@@ -1,0 +1,126 @@
+{
+    "objects": [
+        {
+            "name": "test",
+            "type": "staticmesh",
+            "tag": "",
+            "transform": [
+                0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0,
+                1.0, 1.0, 1.0
+            ],
+            "meshpath": "assets/objects/testing_zone/testing_zone.obj",
+            "texpath": "assets/objects/testing_zone/testing_zone.png",
+            "pixelated": true,
+            "collides": true,
+            "parentbonename": "",
+            "children": []
+        },
+        {
+            "name": "player",
+            "type": "capsule",
+            "tag": "",
+            "transform": [
+                0.0, 0.0, 0.0,
+                0.0, 0.0, 0.0,
+                1.0, 1.0, 1.0
+            ],
+            "height": 1.8,
+            "radius": 0.3,
+            "parentbonename": "",
+            "children": [
+                {
+                    "name": "camnhands",
+                    "type": "animatedobj",
+                    "tag": "",
+                    "transform": [
+                        0.0, 1.5, 0.0,
+                        0.0, 0.0, 0.0,
+                        1.0, 1.0, 1.0
+                    ],
+                    "armaturepath": "assets/objects/glock/camhandsmovement.fbx",
+                    "parentbonename": "",
+                    "children": [
+                        {
+                            "name": "camera",
+                            "type": "camera",
+                            "tag": "",
+                            "fov": 90,
+                            "transform": [
+                                0.0, 0.0, 0.0,
+                                0.0, 0.0, 0.0,
+                                1.0, 1.0, 1.0
+                            ],
+                            "parentbonename": "cam",
+                            "children": []
+                        },
+                        {
+                            "name": "glock",
+                            "type": "animatedmesh",
+                            "tag": "",
+                            "transform": [
+                                0.0, 0.0, 0.0,
+                                180.0, 0.0, 0.0,
+                                0.01, 0.01, 0.01
+                            ],
+                            "meshpath": "assets/objects/glock/glocknhands.fbx",
+                            "texpath": "assets/objects/glock/glocknhands.png",
+                            "pixelated": true,
+                            "parentbonename": "hands",
+                            "children": []
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "lights": [
+        {
+            "name": "light1",
+            "tag": "",
+            "pos": [0.0, 10.0, 0.0],
+            "color": [1.0, 1.0, 1.0],
+            "intensity": 40.0,
+            "radius": 40.0,
+            "falloff": 1.0
+        },
+        {
+            "name": "light2",
+            "tag": "",
+            "pos": [5.0, 7.0, 0.0],
+            "color": [1.0, 0.0, 1.0],
+            "intensity": 20.0,
+            "radius": 10.0,
+            "falloff": 1.0
+        }
+    ],
+    "fonts": [
+        {
+            "ttfpath": "assets/ui/fonts/terminal.ttf",
+            "pixelheight": 32.0
+        }
+    ],
+    "ui": [
+        {
+            "name": "crosshair",
+            "type": "uiimage",
+            "tag": "",
+            "uitransform": [0.5, 0.5, 0.0, 1.0, 1.0],
+            "imagepath": "assets/ui/crosshair.png",
+            "children": []
+        },
+        {
+            "name": "fps",
+            "type": "uitext",
+            "tag": "",
+            "uitransform": [0.1, 0.1, 0.0, 1.0, 1.0],
+            "text": "",
+            "size": 32.0,
+            "fontindex": 0,
+            "color": [1.0, 1.0, 1.0],
+            "anchorX": "l",
+            "anchorY": "t",
+            "children": []
+        }
+    ]
+}

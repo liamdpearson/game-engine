@@ -12,18 +12,10 @@
 #include <map>
 
 
-std::vector<Light*> lights;
+std::vector<Light> lights;
 float ambient = 0.4f;
 std::vector<Tri> occluders;
-std::vector<std::pair<glm::vec3, glm::vec3>> lightGrid;
-
-// for finding the bounds box of the scene for light grid
-float minX = INFINITY;
-float maxX = -INFINITY;
-float minY = INFINITY;
-float maxY = -INFINITY;
-float minZ = INFINITY;
-float maxZ = -INFINITY;
+LightGrid lightGrid;
 
 
 // CLAUDE GENERATED FUNCTION
@@ -61,22 +53,22 @@ glm::vec3 sampleLightAt(const glm::vec3& p)
 {
     glm::vec3 lit(ambient);
 
-    for (Light*& light : lights)
+    for (const Light& light : lights)
     {
-        glm::vec3 toLight = light->pos - p;
+        glm::vec3 toLight = light.pos - p;
         float dist = glm::length(toLight);
-        if (dist > light->radius) continue;
+        if (dist > light.radius) continue;
         glm::vec3 dir = glm::normalize(toLight);
 
         if (rayOccluded(p, dir, dist, occluders)) continue;
         
-        float a = 1/(1+(dist/light->falloff)*(dist/light->falloff));
-        float b = 1/(1+(light->radius/light->falloff)*(light->radius/light->falloff));
+        float a = 1/(1+(dist/light.falloff)*(dist/light.falloff));
+        float b = 1/(1+(light.radius/light.falloff)*(light.radius/light.falloff));
         float denom = 1 - b;
 
-        float atten = light->intensity * (a - b) / denom;
+        float atten = light.intensity * (a - b) / denom;
         atten = std::max(atten, 0.0f); // this line kinda useless but better safe than sorry
-        lit += light->color * atten;
+        lit += light.color * atten;
     }
     // if r, g, or b is over 1.0f then divide them all by the largest one. this
     // will force the values between 0 and 1 while still preserving the hue
@@ -91,24 +83,24 @@ std::pair<glm::vec3, glm::vec3> sampleLightAndDir(const glm::vec3& p)
     glm::vec3 lit(ambient);
     glm::vec3 dir(0.0f);
 
-    for (Light*& light : lights)
+    for (const Light& light : lights)
     {
-        glm::vec3 toLight = light->pos - p;
+        glm::vec3 toLight = light.pos - p;
         float dist = glm::length(toLight);
-        if (dist > light->radius) continue;
+        if (dist > light.radius) continue;
         glm::vec3 d = glm::normalize(toLight);
 
         if (rayOccluded(p, d, dist, occluders)) continue;
         
-        float a = 1/(1+(dist/light->falloff)*(dist/light->falloff));
-        float b = 1/(1+(light->radius/light->falloff)*(light->radius/light->falloff));
+        float a = 1/(1+(dist/light.falloff)*(dist/light.falloff));
+        float b = 1/(1+(light.radius/light.falloff)*(light.radius/light.falloff));
         float denom = 1 - b;
 
-        float atten = light->intensity * (a - b) / denom;
+        float atten = light.intensity * (a - b) / denom;
         atten = std::max(atten, 0.0f); // this line kinda useless but better safe than sorry
-        lit += light->color * atten;
+        lit += light.color * atten;
 
-        dir += d * light->intensity / light->radius;
+        dir += d * light.intensity / light.radius;
     }
     // if r, g, or b is over 1.0f then divide them all by the largest one. this
     // will force the values between 0 and 1 while still preserving the hue
@@ -177,7 +169,8 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
     glm::mat3 normalMat = glm::mat3(glm::transpose(glm::inverse(world)));
     const std::vector<unsigned int>& indices = this->getIndices();
     const std::vector<float>& vertices = this->getVertices();
-    const xatlas::Atlas* atlas = this->getAtlas();
+    xatlas::Atlas* atlas = this->getAtlas();
+    if (!atlas) { Object::BakeLighting(parentWorld); return; }
     const float wMargin = 1.0f / (float)atlas->width;
     const float wOffset = wMargin / 2.0f;
     const float hMargin = 1.0f / (float)atlas->height;
@@ -250,11 +243,11 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
                 // calculate light for texel
                 glm::vec3 lit(ambient);
 
-                for (Light*& light : lights)
+                for (const Light& light : lights)
                 {
-                    glm::vec3 toLight = light->pos - worldPos;
+                    glm::vec3 toLight = light.pos - worldPos;
                     float dist = glm::length(toLight);
-                    if (dist < 0.0001f || dist > light->radius) continue;
+                    if (dist < 0.0001f || dist > light.radius) continue;
 
                     glm::vec3 dir = toLight / dist;
                     float lambert = glm::max(glm::dot(worldNorm, dir), 0.0f);
@@ -263,14 +256,14 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
                     glm::vec3 origin = worldPos + worldNorm * 1e-3f; // shadow bias
                     if (rayOccluded(origin, dir, dist, occluders)) continue;
                     
-                    float a = 1/(1+(dist/light->falloff)*(dist/light->falloff));
-                    float b = 1/(1+(light->radius/light->falloff)*(light->radius/light->falloff));
+                    float a = 1/(1+(dist/light.falloff)*(dist/light.falloff));
+                    float b = 1/(1+(light.radius/light.falloff)*(light.radius/light.falloff));
                     float denom = 1 - b;
 
-                    float atten = light->intensity * (a - b) / denom;
+                    float atten = light.intensity * (a - b) / denom;
                     atten = std::max(atten, 0.0f);  // this line kinda useless but better safe than sorry
 
-                    lit += light->color * lambert * atten;
+                    lit += light.color * lambert * atten;
                 }
 
                 // hue preservation clamp
@@ -327,7 +320,8 @@ void StaticMesh::BakeLighting(const glm::mat4 parentWorld)
 
 
     this->setLightMap(loadLightMap(pixels, atlas->width, atlas->height));
-
+    xatlas::Destroy(atlas);
+    this->setAtlas(nullptr);
     
     // pass parent world because not every object is a static mesh so
     // Object::CollectOccluders has to * transform.matrix() aswell.
@@ -339,40 +333,49 @@ void bakeSceneLighting()
 {
     double start = glfwGetTime();
 
+    occluders.clear();
+    lightGrid = LightGrid{};
+
     for (std::unique_ptr<Object>& obj : rootObjs)
         obj->CollectOccluders(glm::mat4(1.0f), occluders);
     
     std::cout << "baked " << occluders.size() << " occluder Tris"  << '\n';
 
+    if (occluders.size() == 0) return;
+
     for (std::unique_ptr<Object>& obj : rootObjs)
         obj->BakeLighting(glm::mat4(1.0f));
+
+    glm::vec3& min = lightGrid.min;
+    glm::vec3& max = lightGrid.max;
 
     for (const Tri& tri : occluders)
     {
         std::vector<glm::vec3> verts{tri.a, tri.b, tri.c};
         for (const glm::vec3& v : verts)
         {
-            minX = std::min(minX, v.x); maxX = std::max(maxX, v.x);
-            minY = std::min(minY, v.y); maxY = std::max(maxY, v.y);
-            minZ = std::min(minZ, v.z); maxZ = std::max(maxZ, v.z);
+            min.x = std::min(min.x, v.x); max.x = std::max(max.x, v.x);
+            min.y = std::min(min.y, v.y); max.y = std::max(max.y, v.y);
+            min.z = std::min(min.z, v.z); max.z = std::max(max.z, v.z);
         }
     }
 
-    minX = floor(minX) - 1; minY = floor(minY) - 1; minZ = floor(minZ) - 1;
-    maxX = floor(maxX) + 2; maxY = floor(maxY) + 2; maxZ = floor(maxZ) + 2;
+    min.x = floor(min.x) - 1; min.y = floor(min.y) - 1; min.z = floor(min.z) - 1;
+    max.x = floor(max.x) + 2; max.y = floor(max.y) + 2; max.z = floor(max.z) + 2;
 
     std::cout << "Light Grid Dimensions(-X X -Y Y -Z Z):\n";
-    std::cout << minX << ' ' << maxX << ' ' << minY << ' ' << maxY << ' ' << minZ << ' ' << maxZ << '\n';
+    std::cout << min.x << ' ' << min.y << ' ' << min.z << ' ' 
+              << max.x << ' ' << max.y << ' ' << max.z << '\n';
     
     // build light grid
-    for (int x = minX; x <= maxX; ++x)
+    for (int x = min.x; x <= max.x; ++x)
     {
-        for (int y = minY; y <= maxY; ++y)
+        for (int y = min.y; y <= max.y; ++y)
         {
-            for (int z = minZ; z <= maxZ; ++z)
+            for (int z = min.z; z <= max.z; ++z)
             {
                 std::pair<glm::vec3, glm::vec3> litAndDir = sampleLightAndDir(glm::vec3(x, y, z));
-                lightGrid.push_back(litAndDir);
+                lightGrid.values.push_back(litAndDir);
             }
         }
     }
