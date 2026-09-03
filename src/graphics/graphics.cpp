@@ -109,7 +109,7 @@ void main()
 
         vec3 diff = max(dot(n, L), 0.0) * objectLight;
 
-        lit = objectLight * 0.9f + diff * 0.1f;
+        lit = objectLight * 0.8f + diff * 0.2f;
     }
     else if (lightMode == 1)
     {

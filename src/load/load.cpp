@@ -948,5 +948,4 @@ void loadScene(const char* path)
     {
         std::cout << "loadScene: " << path << ": " << e.what() << '\n';
     }
-    
 }
