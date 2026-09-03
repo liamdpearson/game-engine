@@ -1,5 +1,5 @@
 build*/
 commands.txt
-rel.exe
-dbg.exe
+release.exe
+debug.exe
 reldbg.exe
