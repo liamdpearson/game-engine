@@ -1,5 +1,5 @@
 build*/
+commands.txt
 rel.exe
 dbg.exe
 reldbg.exe
-commands.txt
