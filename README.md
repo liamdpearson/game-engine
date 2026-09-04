@@ -1,5 +1,5 @@
 # game-engine
-simple game engine meant to make games that look retro
+simple game engine meant to make 3d games that look like they are from the 90s
 
 
 Current features:
