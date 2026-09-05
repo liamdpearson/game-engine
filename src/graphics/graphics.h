@@ -141,8 +141,8 @@ struct Rig
     float blendDuration = 0.0f;
     float blendElapsed = 0.0f;
 
-    void SetAnimation(int index, float blendTime = 0.0f, int nextAnim = -1);
-    void SetAnimation(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
+    void setAnim(int index, float blendTime = 0.0f, int nextAnim = -1);
+    void setAnim(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
 
     int findBoneIndex(std::string name) {
         for (int b = 0; b < (int)this->skeleton.names.size(); ++b) {
@@ -160,7 +160,6 @@ class Object
         glm::mat4 world = glm::mat4(1.0f);
         int boneIndex = -1; // -1 unless object is a child of a bone in an animated mesh
         std::string name;
-        std::string type;
         std::string tag;
 
     public:
@@ -191,9 +190,6 @@ class Object
 
         void setName(std::string n) { this->name = n; }
         std::string getName() const { return this->name; }
-
-        void setType(std::string t) { this->type = t; }
-        std::string getType() const { return this->type; }
 
         void setTag(std::string t) { this->tag = t; }
         std::string getTag() const { return this->tag; }
@@ -286,8 +282,7 @@ class AnimatedMesh : public Mesh
 
         void Draw() override;
         void ComputePose() override;
-        Rig* GetRig() override { return &this->rig; } 
-
+        Rig* GetRig() override { return &rig; }
         void addChild(std::unique_ptr<Object> child, int bi = -1) override {
             if (bi > -1)
                 child->setBoneIndex(bi);
@@ -306,8 +301,7 @@ class AnimatedObj : public Object
         AnimatedObj() = default;
 
         void ComputePose() override;
-        Rig* GetRig() override { return &this->rig; } 
-
+        Rig* GetRig() override { return &rig; }
         void addChild(std::unique_ptr<Object> child, int bi = -1) override {
             if (bi > -1)
                 child->setBoneIndex(bi);

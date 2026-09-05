@@ -599,7 +599,7 @@ void AnimatedMesh::ComputePose()
     this->rig.animTime += deltaTime * this->rig.animSpeed;
     if (this->rig.nextAnim != -1) {
         if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
-            { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
+            { this->rig.setAnim(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
     }
     if (this->rig.blendDuration > 0.0f) rig.blendElapsed += deltaTime;
     computePose(this->rig);
@@ -612,7 +612,7 @@ void AnimatedObj::ComputePose()
     this->rig.animTime += deltaTime * this->rig.animSpeed;
     if (this->rig.nextAnim != -1) {
         if (this->rig.animations[this->rig.currentAnim].duration - this->rig.animTime <= 0) // if cur anim done
-            { this->rig.SetAnimation(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
+            { this->rig.setAnim(this->rig.nextAnim, 0.1f); this->rig.nextAnim = -1; }
     }
     if (this->rig.blendDuration > 0.0f) rig.blendElapsed += deltaTime;
     computePose(this->rig);
@@ -648,7 +648,7 @@ void AnimatedMesh::Draw()
     Object::Draw();
 }
 
-void Rig::SetAnimation(int index, float blendTime, int nextAnim)
+void Rig::setAnim(int index, float blendTime, int nextAnim)
 {
     if (index < 0 || index >= (int)animations.size()) return;
     
@@ -671,13 +671,13 @@ void Rig::SetAnimation(int index, float blendTime, int nextAnim)
     this->nextAnim = nextAnim;
 }
 
-void Rig::SetAnimation(const std::string& name, float blendTime, int nextAnim)
+void Rig::setAnim(const std::string& name, float blendTime, int nextAnim)
 {
     for (int i = 0; i < (int)animations.size(); ++i)
     {
         if (animations[i].name == name)
         {
-            SetAnimation(i, blendTime, nextAnim);
+            setAnim(i, blendTime, nextAnim);
         }
     }
 }

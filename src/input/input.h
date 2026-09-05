@@ -4,19 +4,6 @@
 
 #include <vector>
 
-extern std::vector<int> keys_pressed;
-extern std::vector<int> mouse_buttons_pressed;
-
-extern std::vector<int> keys_held;
-extern std::vector<int> mouse_buttons_held;
-
-extern std::vector<int> keys_released;
-extern std::vector<int> mouse_buttons_released;
-
-extern float lastX, lastY;
-extern float xPos, yPos;
-extern float xoff, yoff;
-extern bool firstMouse;
 
 void mouseMoveCallback(GLFWwindow*, double xpos, double ypos);
 
@@ -35,3 +22,9 @@ bool mouseButtonPressed(int button);
 bool mouseButtonHeld(int key);
 
 bool mouseButtonReleased(int button);
+
+float mouseDX();
+
+float mouseDY();
+
+void endFrameInput();

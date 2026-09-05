@@ -3,6 +3,7 @@
 #include "input/input.h"
 #include "lighting/lighting.h"
 #include "load/load.h"
+#include "scripts/scripts.h"
 #include "ui/ui.h"
 
 #include <iostream>
@@ -56,6 +57,9 @@ int main()
 
     // load scene
     loadScene("assets/scenes/scene1.json");
+    initScripting();
+
+    
 
     // set scene variables
     Object* p = findObject("player", rootObjs);
@@ -87,8 +91,8 @@ int main()
         return -1;
     }
 
-    camnhands->rig.SetAnimation(0);
-    glock->rig.SetAnimation(0);
+    camnhands->rig.setAnim(0);
+    glock->rig.setAnim(0);
 
     bool walking = false;
     bool ads = false;
@@ -101,8 +105,9 @@ int main()
 
     for (std::unique_ptr<Object>& obj : rootObjs) obj->Upload();
     for (std::unique_ptr<UIElement>& ui : uiRoots) ui->UploadUI();
-    
 
+    for (const ScriptInstance& si : scripts) si.Start();
+    
     while(!glfwWindowShouldClose(window))
     {
         frames++;
@@ -111,9 +116,12 @@ int main()
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        // call update fn in scripts
+        for (const ScriptInstance& si : scripts) si.Update(deltaTime);
+
         // update here
-        player->transform.yaw -= xoff * 0.05;
-        camnhands->transform.pitch -= yoff * 0.05;
+        player->transform.yaw -= mouseDX() * 0.05;
+        camnhands->transform.pitch -= mouseDY() * 0.05;
         camnhands->transform.pitch = std::clamp(camnhands->transform.pitch, -90.0f, 90.0f);
 
         if (keyPressed(GLFW_KEY_ESCAPE)) { 
@@ -136,19 +144,19 @@ int main()
             -cos(glm::radians(player->transform.yaw + 90.0f))
         );
         
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
+        if (keyHeld(GLFW_KEY_W)) {
             moveDir += forward;
         }
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
+        if (keyHeld(GLFW_KEY_S)) {
             moveDir -= forward;
         }
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
+        if (keyHeld(GLFW_KEY_A)) {
             moveDir += right;
         }
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
+        if (keyHeld(GLFW_KEY_D)) {
             moveDir -= right;
         }
-        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+        if (keyHeld(GLFW_KEY_LEFT_SHIFT)) {
             acceleration *= 1.5f;
             camnhands->rig.animSpeed = 1.5f;
         } else {
@@ -194,15 +202,15 @@ int main()
 
         if (mouseButtonPressed(GLFW_MOUSE_BUTTON_1) && glock->rig.currentAnim != 5) {
             if (ammo > 1) {
-                glock->rig.SetAnimation(2, 0.01f, 0);
+                glock->rig.setAnim(2, 0.01f, 0);
                 ammo--;
             }
             else if (ammo == 1) {
-                glock->rig.SetAnimation(3, 0.01f, 1);
+                glock->rig.setAnim(3, 0.01f, 1);
                 ammo--;
             }
             else {
-                glock->rig.SetAnimation(4, 0.05f, 1);
+                glock->rig.setAnim(4, 0.05f, 1);
             }
         }
 
@@ -214,18 +222,15 @@ int main()
         }
 
         if (keyPressed(GLFW_KEY_R) && glock->rig.currentAnim != 5) {
-            glock->rig.SetAnimation(5, 0.05f, 0);
+            glock->rig.setAnim(5, 0.05f, 0);
             ammo = 17;
         }
 
         int shouldBe = walking + ads * 2;
         if (camnhands->rig.currentAnim != shouldBe)
-            camnhands->rig.SetAnimation(shouldBe, 0.1f);
+            camnhands->rig.setAnim(shouldBe, 0.1f);
 
-        // reset global input indicators
-        xoff = 0.0f; yoff = 0.0f;
-        keys_pressed = {}; keys_released = {};
-        mouse_buttons_pressed = {}; mouse_buttons_released = {};
+        endFrameInput();
 
         for (std::unique_ptr<Object>& obj : rootObjs) obj->ComputePose();
         for (std::unique_ptr<Object>& obj : rootObjs) obj->Compose();

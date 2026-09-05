@@ -94,3 +94,14 @@ bool mouseButtonReleased(int button)
 {
     return std::find(mouse_buttons_released.begin(), mouse_buttons_released.end(), button) != mouse_buttons_released.end();
 }
+
+float mouseDX() { return xoff; }
+
+float mouseDY() { return yoff; }
+
+// reset inputs ran after every frame
+void endFrameInput() {
+    xoff = 0.0f; yoff = 0.0f;
+    keys_pressed = {}; keys_released = {};
+    mouse_buttons_pressed = {}; mouse_buttons_released = {};
+}

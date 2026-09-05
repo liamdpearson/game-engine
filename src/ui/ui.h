@@ -43,7 +43,6 @@ class UIElement
     private:
         glm::mat3 world{1.0f};
         std::string name;
-        std::string type;
         std::string tag;
 
     public:
@@ -65,9 +64,6 @@ class UIElement
 
         void setName(std::string n) { this->name = n; }
         std::string getName() const { return this->name; }
-
-        void setType(std::string t) { this->type = t; }
-        std::string getType() const { return this->type; }
 
         void setTag(std::string t) { this->tag = t; }
         std::string getTag() const { return this->tag; }

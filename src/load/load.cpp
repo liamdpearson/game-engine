@@ -2,6 +2,7 @@
 
 #include "../graphics/graphics.h"
 #include "../lighting/lighting.h"
+#include "../scripts/scripts.h"
 #include "../ui/ui.h"
 #include <glm/glm.hpp>                  // vec3, mat4, basic types
 #include <xatlas/xatlas.h>
@@ -739,6 +740,7 @@ static std::unique_ptr<Object> buildObject(const json& node, Object* parent)
     const std::string name = node.value("name", "Unnamed Object");
     const std::string type = node.value("type", "object");
     const std::string tag  = node.value("tag", "");
+    const std::string scriptpath  = node.value("scriptpath", "");
     const std::string pbn = node.value("parentbonename", "");
     const json& t = node.at("transform");
 
@@ -811,9 +813,10 @@ static std::unique_ptr<Object> buildObject(const json& node, Object* parent)
         return nullptr;
     }
     
-    obj->setBoneIndex(pbi); obj->setName(name);
-    obj->setType(type); obj->setTag(tag);
+    obj->setBoneIndex(pbi); obj->setName(name); obj->setTag(tag);
     if (parent) obj->parent = parent;
+
+    if (scriptpath != "" ) attachScript(obj.get(), scriptpath);
 
     for (const json& child : node.value("children", json::array()))
     {
@@ -883,7 +886,7 @@ static std::unique_ptr<UIElement> buildUIElement(const json& node, UIElement* pa
         return nullptr;
     }
 
-    ui->setName(name); ui->setType(type); ui->setTag(tag);
+    ui->setName(name); ui->setTag(tag);
     if (parent) ui->parent = parent;
 
     for (const json& child : node.value("children", json::array()))

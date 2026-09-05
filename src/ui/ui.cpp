@@ -1,9 +1,8 @@
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb/stb_truetype.h>
 
-#include "ui.h"
-
 #include "../graphics/graphics.h"
+#include "ui.h"
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
