@@ -15,6 +15,13 @@ end
 function update(deltaTime)
     self.transform.yaw = self.transform.yaw - input.mouseDX() * 0.05
     camnhands.transform.pitch = camnhands.transform.pitch - input.mouseDY() * 0.05
+    if camnhands.transform.pitch > 90.0 then
+        camnhands.transform.pitch = 90.0
+    end
+
+    if camnhands.transform.pitch < -90.0 then
+        camnhands.transform.pitch = -90.0
+    end
 
     acceleration = 30.0 * deltaTime
 

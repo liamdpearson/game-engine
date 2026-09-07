@@ -36,24 +36,23 @@ set_target_properties(glfw3 PROPERTIES
 
 # --- engine ---
 add_library(engine STATIC
-    src/collisions/collisions.cpp
-    src/graphics/graphics.cpp
-    src/input/input.cpp
-    src/lighting/lighting.cpp
-    src/load/load.cpp
-    src/scripts/scripts.cpp
-    src/ui/ui.cpp
-    
+    engine/collisions/collisions.cpp
+    engine/graphics/graphics.cpp
+    engine/input/input.cpp
+    engine/lighting/lighting.cpp
+    engine/load/load.cpp
+    engine/scripts/scripts.cpp
+    engine/ui/ui.cpp
 )
-target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(engine PUBLIC ${CMAKE_SOURCE_DIR}/engine)
 target_compile_options(engine PRIVATE -Wall -Wextra)
 target_link_libraries(engine PUBLIC third_party glfw3 lua opengl32 gdi32)
 
 # --- game ---
-add_executable(app src/main.cpp)
+add_executable(app engine/main.cpp)
 target_compile_options(app PRIVATE -Wall -Wextra)
 target_link_libraries(app PRIVATE engine)
 set_target_properties(app PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_NAME $<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,reldbg,release>>
+    OUTPUT_NAME $<IF:$<CONFIG:RelWithDebInfo>,reldbg,release>
 )

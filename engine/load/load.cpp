@@ -740,7 +740,6 @@ static std::unique_ptr<Object> buildObject(const json& node, Object* parent)
     const std::string name = node.value("name", "Unnamed Object");
     const std::string type = node.value("type", "object");
     const std::string tag  = node.value("tag", "");
-    const std::string scriptpath  = node.value("scriptpath", "");
     const std::string pbn = node.value("parentbonename", "");
     const json& t = node.at("transform");
 
@@ -822,7 +821,8 @@ static std::unique_ptr<Object> buildObject(const json& node, Object* parent)
     obj->setBoneIndex(pbi); obj->setName(name); obj->setTag(tag);
     if (parent) obj->parent = parent;
 
-    if (scriptpath != "" ) attachScript(obj.get(), scriptpath);
+    for (const std::string& path : node.value("scripts", json::array()))
+        attachScript(obj.get(), path);
 
     for (const json& child : node.value("children", json::array()))
     {
@@ -946,6 +946,9 @@ void loadScene(const char* path)
             auto ui = buildUIElement(node, nullptr);
             if (ui) tempUI.push_back(std::move(ui));
         }
+        // global scripts operate the same way as regular scripts just with no self object
+        for (const std::string& path : scene.value("globalscripts", json::array()))
+            attachScript(nullptr, path);
 
         rootObjs = std::move(tempObjs);
         lights = tempLights;

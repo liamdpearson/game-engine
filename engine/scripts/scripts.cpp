@@ -19,7 +19,6 @@ void attachScript(Object* obj, std::string path)
 
 static sol::object objectToLua(Object* obj)
 {
-    std::cout << "\n\n" << obj << "\n\n";
     if (Capsule* capsule = dynamic_cast<Capsule*>(obj))
         return sol::make_object(lua, capsule);
 
@@ -43,7 +42,6 @@ static sol::object objectToLua(Object* obj)
 
 static sol::object uiToLua(UIElement* ui)
 {
-    std::cout << "\n\n" << ui << "\n\n";
     if (UIImage* image = dynamic_cast<UIImage*>(ui))
         return sol::make_object(lua, image);
 
@@ -147,6 +145,10 @@ void initScripting()
         sol::base_classes, sol::bases<Object>()
     );
     lua.new_usertype<Camera>("Camera",
+        "pos", sol::property(&Camera::getPos, &Camera::setPos),
+        "front", sol::property(&Camera::getFront, &Camera::setFront),
+        "up", sol::property(&Camera::getUp, &Camera::setUp),
+        "setCurrent", [](Camera* c) { currentCam = c; },
         sol::base_classes, sol::bases<Object>()
     );
     lua.new_usertype<Capsule>("Capsule",
@@ -168,7 +170,9 @@ void initScripting()
         "mouseDY", &mouseDY
     );
     lua.create_named_table("key",
+        "Q", GLFW_KEY_Q,
         "W", GLFW_KEY_W,
+        "E", GLFW_KEY_E,
         "A", GLFW_KEY_A,
         "S", GLFW_KEY_S,
         "D", GLFW_KEY_D,
@@ -213,20 +217,22 @@ void initScripting()
         sol::environment env(lua, sol::create, lua.globals());
         si.env = env;
 
-        if (Capsule* capsule = dynamic_cast<Capsule*>(si.obj))
-            si.env["self"] = capsule;
-        else if (Camera* camera = dynamic_cast<Camera*>(si.obj))
-            si.env["self"] = camera;
-        else if (AnimatedObj* animatedObj = dynamic_cast<AnimatedObj*>(si.obj))
-            si.env["self"] = animatedObj;
-        else if (AnimatedMesh* animatedMesh = dynamic_cast<AnimatedMesh*>(si.obj))
-            si.env["self"] = animatedMesh;
-        else if (StaticMesh* staticMesh = dynamic_cast<StaticMesh*>(si.obj))
-            si.env["self"] = staticMesh;
-        else if (Mesh* mesh = dynamic_cast<Mesh*>(si.obj))
-            si.env["self"] = mesh;
-        else
-            si.env["self"] = si.obj;
+        if (si.obj) {
+            if (Capsule* capsule = dynamic_cast<Capsule*>(si.obj))
+                si.env["self"] = capsule;
+            else if (Camera* camera = dynamic_cast<Camera*>(si.obj))
+                si.env["self"] = camera;
+            else if (AnimatedObj* animatedObj = dynamic_cast<AnimatedObj*>(si.obj))
+                si.env["self"] = animatedObj;
+            else if (AnimatedMesh* animatedMesh = dynamic_cast<AnimatedMesh*>(si.obj))
+                si.env["self"] = animatedMesh;
+            else if (StaticMesh* staticMesh = dynamic_cast<StaticMesh*>(si.obj))
+                si.env["self"] = staticMesh;
+            else if (Mesh* mesh = dynamic_cast<Mesh*>(si.obj))
+                si.env["self"] = mesh;
+            else
+                si.env["self"] = si.obj;
+        }
 
         sol::load_result loaded = lua.load(source, si.path);
         if (!loaded.valid()) {

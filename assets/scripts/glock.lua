@@ -5,7 +5,7 @@ function start()
     ammo = 17
 end
 
-function update()
+function update(deltaTime)
     if input.mousePressed(mouse.LEFT) and self.rig.currentAnim ~= 5 then
         if ammo > 1 then
             self.rig:setAnim(2, 0.01, 0)

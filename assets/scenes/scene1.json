@@ -4,7 +4,7 @@
             "name": "test",
             "type": "staticmesh",
             "tag": "",
-            "scriptpath": "",
+            "scripts": [],
             "transform": [
                 0.0, 0.0, 0.0,
                 0.0, 0.0, 0.0,
@@ -21,7 +21,9 @@
             "name": "player",
             "type": "capsule",
             "tag": "",
-            "scriptpath": "assets/scripts/player.lua",
+            "scripts": [
+                "assets/scripts/player.lua"
+            ],
             "transform": [
                 0.0, 5.0, 0.0,
                 0.0, 0.0, 0.0,
@@ -35,7 +37,7 @@
                     "name": "camnhands",
                     "type": "animatedobj",
                     "tag": "",
-                    "scriptpath": "",
+                    "scripts": [],
                     "transform": [
                         0.0, 1.5, 0.0,
                         0.0, 0.0, 0.0,
@@ -48,7 +50,7 @@
                             "name": "camera",
                             "type": "camera",
                             "tag": "",
-                            "scriptpath": "",
+                            "scripts": [],
                             "fov": 90,
                             "isCurrent": true,
                             "transform": [
@@ -63,7 +65,9 @@
                             "name": "glock",
                             "type": "animatedmesh",
                             "tag": "",
-                            "scriptpath": "assets/scripts/glock.lua",
+                            "scripts": [
+                                "assets/scripts/glock.lua"
+                            ],
                             "transform": [
                                 0.0, 0.0, 0.0,
                                 180.0, 0.0, 0.0,
@@ -78,6 +82,21 @@
                     ]
                 }
             ]
+        },
+        {
+            "name": "testcam",
+            "type": "camera",
+            "tag": "",
+            "scripts": [],
+            "fov": 90,
+            "isCurrent": false,
+            "transform": [
+                0.0, 10.0, 0.0,
+                0.0, 90.0, 0.0,
+                1.0, 1.0, 1.0
+            ],
+            "parentbonename": "",
+            "children": []
         }
     ],
     "lights": [
@@ -120,7 +139,7 @@
             "type": "uitext",
             "tag": "",
             "uitransform": [0.1, 0.1, 0.0, 1.0, 1.0],
-            "text": "WAZZUP",
+            "text": "",
             "size": 32.0,
             "fontindex": 0,
             "color": [1.0, 1.0, 1.0],
@@ -128,5 +147,9 @@
             "anchorY": "t",
             "children": []
         }
+    ],
+    "globalscripts": [
+        "assets/scripts/fps.lua",
+        "assets/scripts/cameras.lua"
     ]
 }
