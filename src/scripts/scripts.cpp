@@ -1,6 +1,8 @@
 #include "scripts.h"
 
+#include "../collisions/collisions.h"
 #include "../input/input.h"
+#include "../ui/ui.h"
 #include <fstream>
 
 sol::state lua;
@@ -13,6 +15,42 @@ void attachScript(Object* obj, std::string path)
     si.obj = obj;
     si.path = path;
     scripts.push_back(si);
+}
+
+static sol::object objectToLua(Object* obj)
+{
+    std::cout << "\n\n" << obj << "\n\n";
+    if (Capsule* capsule = dynamic_cast<Capsule*>(obj))
+        return sol::make_object(lua, capsule);
+
+    else if (Camera* camera = dynamic_cast<Camera*>(obj))
+        return sol::make_object(lua, camera);
+
+    else if (AnimatedObj* animatedObj = dynamic_cast<AnimatedObj*>(obj))
+        return sol::make_object(lua, animatedObj);
+
+    else if (AnimatedMesh* animatedMesh = dynamic_cast<AnimatedMesh*>(obj))
+        return sol::make_object(lua, animatedMesh);
+
+    else if (StaticMesh* staticMesh = dynamic_cast<StaticMesh*>(obj))
+        return sol::make_object(lua, staticMesh);
+
+    else if (Mesh* mesh = dynamic_cast<Mesh*>(obj))
+        return sol::make_object(lua, mesh);
+
+    return sol::make_object(lua, obj);
+}
+
+static sol::object uiToLua(UIElement* ui)
+{
+    std::cout << "\n\n" << ui << "\n\n";
+    if (UIImage* image = dynamic_cast<UIImage*>(ui))
+        return sol::make_object(lua, image);
+
+    else if (UIText* text = dynamic_cast<UIText*>(ui))
+        return sol::make_object(lua, text);
+
+    return sol::make_object(lua, ui);
 }
 
 void initScripting()
@@ -47,6 +85,27 @@ void initScripting()
             return "(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
         }
     );
+    lua.new_usertype<UITransform>("UITransform",
+        "x", &UITransform::x,
+        "y", &UITransform::y,
+        "angle", &UITransform::angle,
+        "scaleX", &UITransform::scaleX,
+        "scaleY", &UITransform::scaleY
+    );
+    lua.new_usertype<UIElement>("UIElement",
+        "name", sol::property(&UIElement::getName, &UIElement::setName),
+        "tag", sol::property(&UIElement::getTag, &UIElement::setTag),
+        "draw", &UIElement::draw,
+        "transform", &UIElement::transform
+    );
+    lua.new_usertype<UIImage>("UIImage",
+        sol::base_classes, sol::bases<UIElement>()
+    );
+    lua.new_usertype<UIText>("UIText",
+        "text", &UIText::text,
+        "color", &UIText::color,
+        sol::base_classes, sol::bases<UIElement>()
+    );
     lua.new_usertype<Transform>("Transform",
         "x", &Transform::x,
         "y", &Transform::y,
@@ -56,8 +115,7 @@ void initScripting()
         "roll", &Transform::roll,
         "scaleX", &Transform::scaleX,
         "scaleY", &Transform::scaleY,
-        "scaleZ", &Transform::scaleZ,
-        "matrix", &Transform::matrix
+        "scaleZ", &Transform::scaleZ
     );
     lua.new_usertype<Rig>("Rig",
         "currentAnim", &Rig::currentAnim,
@@ -96,6 +154,7 @@ void initScripting()
         "radius", &Capsule::radius,
         "velocity", &Capsule::velocity,
         "grounded", &Capsule::grounded,
+        "resolveCollisions", [](Capsule* cap, float deltaTime) { resolveCollisions(cap, deltaTime); },
         sol::base_classes, sol::bases<Object>()
     );
     lua.create_named_table("input",
@@ -121,6 +180,21 @@ void initScripting()
     lua.create_named_table("mouse",
         "LEFT",  GLFW_MOUSE_BUTTON_LEFT,
         "RIGHT", GLFW_MOUSE_BUTTON_RIGHT
+    );
+    sol::table find = lua.create_named_table("find");
+    find.set_function("obj", [](const std::string& name) {
+        Object* obj = findObject(name, rootObjs);
+        return objectToLua(obj);
+    });
+    find.set_function("ui", [](const std::string& name) {
+        UIElement* ui = findUIElement(name, uiRoots);
+        return uiToLua(ui);
+    });
+    lua.set_function(
+        "quit", []() { glfwSetWindowShouldClose(window, true); }
+    );
+    lua.set_function(
+        "quit", []() { glfwSetWindowShouldClose(window, true); }
     );
 
     for (ScriptInstance& si : scripts)

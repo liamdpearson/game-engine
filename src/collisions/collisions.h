@@ -2,6 +2,6 @@
 
 #include "../graphics/graphics.h"
 
-void resolveCapsuleCollision(Capsule*& capsule, const std::vector<TriAABB>& colliders);
+void resolveCollisions(Capsule* cap, float deltaTime);
 
 void collectSceneColliders();

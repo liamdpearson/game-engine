@@ -365,6 +365,9 @@ class Capsule : public Object
 // define scene variables
 extern std::vector<std::unique_ptr<Object>> rootObjs;
 
+
+extern Camera* currentCam;
+
 // lighting stuff
 extern std::vector<Light> lights;
 extern float ambient;

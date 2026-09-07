@@ -19,6 +19,9 @@
 // define scene variables
 std::vector<std::unique_ptr<Object>> rootObjs;
 
+// ptr to current camera
+Camera* currentCam;
+
 // define opengl variables
 GLFWwindow* window;
 int SW, SH;

@@ -798,6 +798,12 @@ static std::unique_ptr<Object> buildObject(const json& node, Object* parent)
             transform,
             node.value("fov", 90.0f)
         );
+
+        if (node.value("isCurrent", false))
+        {
+            if (Camera* cam = dynamic_cast<Camera*>(obj.get()))
+                currentCam = cam;
+        }
     }
     else if (type == "capsule")
     {

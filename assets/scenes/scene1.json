@@ -50,6 +50,7 @@
                             "tag": "",
                             "scriptpath": "",
                             "fov": 90,
+                            "isCurrent": true,
                             "transform": [
                                 0.0, 0.0, 0.0,
                                 0.0, 0.0, 0.0,
@@ -62,7 +63,7 @@
                             "name": "glock",
                             "type": "animatedmesh",
                             "tag": "",
-                            "scriptpath": "",
+                            "scriptpath": "assets/scripts/glock.lua",
                             "transform": [
                                 0.0, 0.0, 0.0,
                                 180.0, 0.0, 0.0,

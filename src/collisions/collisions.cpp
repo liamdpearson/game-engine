@@ -58,7 +58,7 @@ static glm::vec3 closestPointOnSegment(const glm::vec3& p,
 
 static const float GROUND_NORMAL_Y = 0.7f;
 
-void resolveCapsuleCollision(Capsule*& capsule, const std::vector<TriAABB>& colliders)
+static void resolveCapsuleCollision(Capsule* capsule, const std::vector<TriAABB>& colliders)
 {
     const float radiusSq = capsule->radius * capsule->radius;
     capsule->grounded = false;
@@ -150,6 +150,26 @@ void resolveCapsuleCollision(Capsule*& capsule, const std::vector<TriAABB>& coll
 
         if (!hitAny) break;
     }
+}
+
+void resolveCollisions(Capsule* cap, float deltaTime)
+{
+    glm::vec3 step = cap->velocity * deltaTime;
+    int substeps = glm::max(1, (int)glm::ceil(glm::length(step) / (cap->radius * 0.5f)));
+
+    bool groundedAny = false;
+
+    for (int i = 0; i < substeps; ++i)
+    {
+        cap->transform.x += step.x / substeps;
+        cap->transform.y += step.y / substeps;
+        cap->transform.z += step.z / substeps;
+
+            resolveCapsuleCollision(cap, colliders);
+
+        if (cap->grounded) groundedAny = true;
+    }
+    cap->grounded = groundedAny;
 }
 
 void Object::CollectColliders(const glm::mat4 parentWorld, std::vector<TriAABB>& out)
