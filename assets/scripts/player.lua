@@ -7,14 +7,13 @@ function start()
     camnhands = find.obj("camnhands")
     camnhands.rig:setAnim(0)
     crosshair = find.ui("crosshair")
-    print(crosshair)
     walking = false
     ads = false
 end
 
 function update(deltaTime)
     self.transform.yaw = self.transform.yaw - input.mouseDX() * 0.05
-    camnhands.transform.pitch = camnhands.transform.pitch - input.mouseDY() * 0.05
+    camnhands.transform.pitch = camnhands.transform.pitch + input.mouseDY() * 0.05
     if camnhands.transform.pitch > 90.0 then
         camnhands.transform.pitch = 90.0
     end

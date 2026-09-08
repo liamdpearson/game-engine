@@ -3,7 +3,7 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/src",
+                "${workspaceFolder}/engine",
                 "${workspaceFolder}/third_party",
                 "${workspaceFolder}/third_party/lua",
                 "${workspaceFolder}/third_party/glad/include",

@@ -13,5 +13,3 @@ std::unique_ptr<AnimatedMesh> makeAnimatedMesh(const Transform& transform, const
                                                const char* texPath, bool pixelated);
 
 std::unique_ptr<AnimatedObj> makeAnimatedObj(const Transform& transform, const char* objPath);
-
-void loadScene(const char* path);

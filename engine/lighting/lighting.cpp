@@ -13,7 +13,8 @@
 
 
 std::vector<Light> lights;
-float ambient = 0.4f;
+float ambient = 0.0f;
+float lightmapResScalar = 0.01;
 std::vector<Tri> occluders;
 LightGrid lightGrid;
 

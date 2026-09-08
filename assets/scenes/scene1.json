@@ -92,7 +92,7 @@
             "isCurrent": false,
             "transform": [
                 0.0, 10.0, 0.0,
-                0.0, 90.0, 0.0,
+                90.0, -90.0, 0.0,
                 1.0, 1.0, 1.0
             ],
             "parentbonename": "",
@@ -138,7 +138,7 @@
             "name": "fps",
             "type": "uitext",
             "tag": "",
-            "uitransform": [0.1, 0.1, 0.0, 1.0, 1.0],
+            "uitransform": [0.01, 0.025, 0.0, 1.0, 1.0],
             "text": "",
             "size": 32.0,
             "fontindex": 0,
@@ -151,5 +151,7 @@
     "globalscripts": [
         "assets/scripts/fps.lua",
         "assets/scripts/cameras.lua"
-    ]
+    ],
+    "ambient": 0.2,
+    "lightmapResScalar": 0.1
 }

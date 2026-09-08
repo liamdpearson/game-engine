@@ -3,6 +3,7 @@
 #include "input/input.h"
 #include "lighting/lighting.h"
 #include "load/load.h"
+#include "scenes/scenes.h"
 #include "scripts/scripts.h"
 #include "ui/ui.h"
 
@@ -56,7 +57,7 @@ int main()
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
     // load scene
-    loadScene("assets/scenes/scene1.json");
+    loadScene(startupScene.c_str());
     initScripting();
 
     bakeSceneLighting();
@@ -65,7 +66,7 @@ int main()
     for (std::unique_ptr<Object>& obj : rootObjs) obj->Upload();
     for (std::unique_ptr<UIElement>& ui : uiRoots) ui->UploadUI();
 
-    for (const ScriptInstance& si : scripts) si.Start();
+    startScripts();
     
     while(!glfwWindowShouldClose(window))
     {
@@ -75,7 +76,12 @@ int main()
         lastFrame = currentFrame;
 
         // call update fn in scripts
-        for (const ScriptInstance& si : scripts) si.Update(deltaTime);
+        updateScripts();
+
+        if (pendingScene != "") {
+            swapScene(pendingScene.c_str());
+            pendingScene = "";
+        }
 
         if (keyHeld(GLFW_KEY_LEFT_ALT) && keyPressed(GLFW_KEY_F4))
             glfwSetWindowShouldClose(window, true);

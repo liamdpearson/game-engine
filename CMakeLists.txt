@@ -41,6 +41,7 @@ add_library(engine STATIC
     engine/input/input.cpp
     engine/lighting/lighting.cpp
     engine/load/load.cpp
+    engine/scenes/scenes.cpp
     engine/scripts/scripts.cpp
     engine/ui/ui.cpp
 )

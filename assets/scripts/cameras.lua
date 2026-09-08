@@ -13,4 +13,7 @@ function update(deltaTime)
     if input.keyPressed(key.E) then
         cam1:setCurrent()
     end
+    if input.keyPressed(key.T) then
+        swapScene("assets/scenes/scene1.json")
+    end
 end

@@ -33,7 +33,7 @@ struct Transform
         glm::mat4 m(1.0f);
         m = glm::translate(m, glm::vec3(x, y, z));
         m = glm::rotate(m, glm::radians(yaw), glm::vec3(0, 1, 0));
-        m = glm::rotate(m, glm::radians(pitch), glm::vec3(-1, 0, 0));
+        m = glm::rotate(m, glm::radians(pitch), glm::vec3(1, 0, 0));
         m = glm::rotate(m, glm::radians(roll), glm::vec3(0, 0, 1));
         m = glm::scale(m, glm::vec3(scaleX, scaleY, scaleZ));
         return m;
@@ -145,9 +145,9 @@ struct Rig
     void setAnim(const std::string& name, float blendTime = 0.0f, int nextAnim = -1);
 
     int findBoneIndex(std::string name) {
-        for (int b = 0; b < (int)this->skeleton.names.size(); ++b) {
+        for (int b = 0; b < (int)this->skeleton.names.size(); ++b)
             if (this->skeleton.names[b] == name) return b;
-        }
+
         std::cout << "Couldn't find bone: " << name << '\n';
         return -1;
     }
@@ -365,12 +365,17 @@ class Capsule : public Object
 // define scene variables
 extern std::vector<std::unique_ptr<Object>> rootObjs;
 
-
+// draws from this camera
 extern Camera* currentCam;
+
+// set scene variables
+extern std::string startupScene;
+extern std::string pendingScene;
 
 // lighting stuff
 extern std::vector<Light> lights;
 extern float ambient;
+extern float lightmapResScalar;
 extern std::vector<Tri> occluders;
 extern LightGrid lightGrid;
 

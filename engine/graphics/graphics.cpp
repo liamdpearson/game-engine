@@ -22,6 +22,10 @@ std::vector<std::unique_ptr<Object>> rootObjs;
 // ptr to current camera
 Camera* currentCam;
 
+// set scene variables
+std::string startupScene = "assets/scenes/scene1.json";
+std::string pendingScene = "";
+
 // define opengl variables
 GLFWwindow* window;
 int SW, SH;

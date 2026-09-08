@@ -1,9 +1,11 @@
-#include "scripts.h"
+#include "scripts_internal.h"
 
 #include "../collisions/collisions.h"
 #include "../input/input.h"
 #include "../ui/ui.h"
 #include <fstream>
+#include <cstring>
+
 
 sol::state lua;
 
@@ -51,7 +53,7 @@ static sol::object uiToLua(UIElement* ui)
     return sol::make_object(lua, ui);
 }
 
-void initScripting()
+static void registerLuaAPI()
 {
     lua.open_libraries(sol::lib::base, sol::lib::math);
 
@@ -173,10 +175,11 @@ void initScripting()
         "Q", GLFW_KEY_Q,
         "W", GLFW_KEY_W,
         "E", GLFW_KEY_E,
+        "R", GLFW_KEY_R,
+        "T", GLFW_KEY_T,
         "A", GLFW_KEY_A,
         "S", GLFW_KEY_S,
         "D", GLFW_KEY_D,
-        "R", GLFW_KEY_R,
         "SPACE",  GLFW_KEY_SPACE,
         "LSHIFT", GLFW_KEY_LEFT_SHIFT,
         "ESCAPE", GLFW_KEY_ESCAPE
@@ -195,12 +198,24 @@ void initScripting()
         return uiToLua(ui);
     });
     lua.set_function(
-        "quit", []() { glfwSetWindowShouldClose(window, true); }
+        "swapScene", [](const std::string& path) {
+            pendingScene = path;
+        }
     );
     lua.set_function(
         "quit", []() { glfwSetWindowShouldClose(window, true); }
     );
+}
 
+void resetScripting()
+{
+    scripts.clear();
+    lua = sol::state{};
+    registerLuaAPI();
+}
+
+void loadScripts()
+{
     for (ScriptInstance& si : scripts)
     {
         std::ifstream file(si.path);
@@ -282,4 +297,20 @@ void ScriptInstance::Update(float deltaTime) const
         sol::error err = result;
         std::cout << "Update function error: " << err.what() << '\n';
     }
+}
+
+void initScripting()
+{
+    registerLuaAPI();
+    loadScripts();
+}
+
+void startScripts()
+{
+    for (const ScriptInstance& si : scripts) si.Start();
+}
+
+void updateScripts()
+{
+    for (const ScriptInstance& si : scripts) si.Update(deltaTime);
 }
