@@ -15,7 +15,7 @@ simple game engine meant to make 3d games that look like they are from the 90s
 - Scripting with Lua
 
 
-To DO:
+TO DO:
 - Add sound with miniaudio
 - Add decals
 - Add some sort of particle system
