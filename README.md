@@ -1,4 +1,4 @@
-# OG3D game engine
+# og3D game engine
 simple game engine meant to make 3d games that look like they are from the 90s
 
 
