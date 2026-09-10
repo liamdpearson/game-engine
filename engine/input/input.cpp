@@ -38,6 +38,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 {
     if (action == GLFW_PRESS) {
         keys_pressed.push_back(key);
+        
         keys_held.push_back(key);
     }
 

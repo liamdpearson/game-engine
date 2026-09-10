@@ -15,37 +15,35 @@
 std::vector<Light> lights;
 float ambient = 0.0f;
 float lightmapResScalar = 0.01;
-std::vector<Tri> occluders;
+std::vector<TriAABB> occluders;
 LightGrid lightGrid;
 
 
-// CLAUDE GENERATED FUNCTION
-// Möller-Trumbore algorithm to check if a ray hits any occluders.
-static bool rayOccluded(const glm::vec3& origin, const glm::vec3& dir,
-                        float maxDist, const std::vector<Tri>& tris)
+static bool rayHitTri(const glm::vec3& origin, const glm::vec3& dir,
+                      float maxDist, const Tri& t)
 {
-    const float EPS = 1e-6f;
+    const glm::vec3 e1 = t.b - t.a;
+    const glm::vec3 e2 = t.c - t.a;
+    const glm::vec3 h = glm::cross(dir, e2);
+    const float a = glm::dot(e1, h);
+    if (a > -0.0001f && a < 0.0001f) return false; // parallel
+    const float f = 1 / a;
+    const glm::vec3 s = origin - t.a;
+    const float u = f * glm::dot(s, h);
+    if (u < 0 || u > 1) return false;
+    const glm::vec3 q = glm::cross(s, e1);
+    const float v = f * glm::dot(dir, q);
+    if (v < 0 || u + v > 1) return false;
+    const float dist = f * glm::dot(e2, q);
+    return dist > 0.0001 && dist < maxDist;
+}
 
-    for (const Tri& t : tris)
-    {
-        glm::vec3 e1 = t.b - t.a;
-        glm::vec3 e2 = t.c - t.a;
-        glm::vec3 p  = glm::cross(dir, e2);
-        float det = glm::dot(e1, p);
-        if (glm::abs(det) < EPS) continue;   // ray runs parallel to the triangle
-
-        float invDet = 1.0f / det;
-        glm::vec3 tv = origin - t.a;
-
-        float u = glm::dot(tv, p) * invDet;
-        if (u < 0.0f || u > 1.0f) continue;
-
-        glm::vec3 q = glm::cross(tv, e1);
-        float v = glm::dot(dir, q) * invDet;
-        if (v < 0.0f || u + v > 1.0f) continue;
-
-        float hit = glm::dot(e2, q) * invDet;
-        if (hit > EPS && hit < maxDist) return true;   // blocked before the light
+static bool rayOccluded(const glm::vec3& origin, const glm::vec3& dir,
+                        float maxDist, const std::vector<TriAABB>& tris)
+{
+    for (const TriAABB& t : tris)
+    {   
+        if (rayHitTri(origin, dir, maxDist, t)) return true;
     }
     return false;
 }
@@ -117,14 +115,14 @@ std::pair<glm::vec3, glm::vec3> sampleLightAndDir(const glm::vec3& p)
 }
 
 // recursive part of the occluders walk
-void Object::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out)
+void Object::CollectOccluders(const glm::mat4 parentWorld, std::vector<TriAABB>& out)
 {
     glm::mat4 world = parentWorld * transform.matrix();
     for (std::unique_ptr<Object>& child : children) child->CollectOccluders(world, out);
 }
 
 // collects occluders from the static mesh and then calls Object::CollectOccluders.
-void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>& out)
+void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<TriAABB>& out)
 {
     glm::mat4 world = parentWorld * transform.matrix();
     const std::vector<unsigned int>& indices = this->getIndices();
@@ -140,7 +138,7 @@ void StaticMesh::CollectOccluders(const glm::mat4 parentWorld, std::vector<Tri>&
             tri[c] = glm::vec3(world * glm::vec4(local, 1.0f));
         }
 
-        Tri t{tri[0], tri[1], tri[2]};
+        TriAABB t{tri[0], tri[1], tri[2]};
         out.push_back(t);
        
     }

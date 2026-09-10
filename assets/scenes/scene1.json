@@ -117,6 +117,24 @@
             "intensity": 20.0,
             "radius": 10.0,
             "falloff": 1.0
+        },
+        {
+            "name": "light3",
+            "tag": "",
+            "pos": [-5.0, 10.0, 0.0],
+            "color": [0.3, 0.5, 0.1],
+            "intensity": 30.0,
+            "radius": 15.0,
+            "falloff": 2.0
+        },
+        {
+            "name": "light4",
+            "tag": "",
+            "pos": [-1.0, 4.0, 8.0],
+            "color": [0.1, 0.5, 0.4],
+            "intensity": 5.0,
+            "radius": 100.0,
+            "falloff": 3.0
         }
     ],
     "fonts": [
@@ -152,6 +170,6 @@
         "assets/scripts/fps.lua",
         "assets/scripts/cameras.lua"
     ],
-    "ambient": 0.2,
+    "ambient": 0.4,
     "lightmapResScalar": 0.1
 }
