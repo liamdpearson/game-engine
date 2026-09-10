@@ -27,3 +27,4 @@ Make sure gcc, g++, and mingw32-make are on your path.
 1. Clone the repo
 2. cmake -S . -B build -G "MinGW Makefiles"
 3. cmake --build build
+4. ./release
