@@ -1,5 +1,5 @@
-# og3D game engine
-simple game engine meant to make 3d games that look like they are from the 90s
+# Wayback3D
+A simple game engine meant to make 3d games that look like they were made way back in the 90s.
 
 
 ## Current features:
