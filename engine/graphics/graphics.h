@@ -14,6 +14,7 @@
 #include <string>
 #include <iostream>
 #include <memory>
+#include <chrono>
 
 
 const int VERTEX_FLOATS = 15;
@@ -394,7 +395,9 @@ extern std::vector<TriAABB> colliders;
 extern GLFWwindow* window;
 extern int SW, SH;
 
-extern float deltaTime, lastFrame, currentFrame;
+extern double target_frame_duration;
+extern float deltaTime;
+extern std::chrono::high_resolution_clock::time_point lastFrameTime, currentFrameTime;
 
 extern unsigned int shaderProgram;
 

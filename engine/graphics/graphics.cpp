@@ -30,7 +30,10 @@ std::string pendingScene = "";
 GLFWwindow* window;
 int SW, SH;
 
-float deltaTime, lastFrame, currentFrame;
+double target_frame_duration;
+float deltaTime = 0.0f;
+std::chrono::high_resolution_clock::time_point lastFrameTime = std::chrono::high_resolution_clock::now();
+std::chrono::high_resolution_clock::time_point currentFrameTime = std::chrono::high_resolution_clock::now();
 
 unsigned int shaderProgram;
 
@@ -125,7 +128,7 @@ void main()
     }
 
     vec4 t = texture(tex, TexCoord);
-    FragColor = vec4(t.rgb * lit, t.a);
+    FragColor = vec4(t.rgb * lit, t.a * 0.5);
 }
 )glsl";
 

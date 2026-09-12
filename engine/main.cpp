@@ -9,6 +9,8 @@
 
 #include <iostream>
 #include <algorithm>
+#include <thread>
+#include <chrono>
 
 
 int main()
@@ -59,6 +61,7 @@ int main()
     // load scene
     loadScene(startupScene.c_str());
     initScripting();
+    target_frame_duration = 0.00333;
 
     bakeSceneLighting();
     collectSceneColliders();
@@ -70,10 +73,24 @@ int main()
     
     while(!glfwWindowShouldClose(window))
     {
-        // calculate delta time
-        currentFrame = (float)glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        // wait for frame cap
+        currentFrameTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = currentFrameTime - lastFrameTime;
+
+        double time_left = target_frame_duration - elapsed.count();
+
+        while (time_left > 0.0)
+        {
+            currentFrameTime = std::chrono::high_resolution_clock::now();
+            elapsed = currentFrameTime - lastFrameTime;
+            time_left = target_frame_duration - elapsed.count();
+        }
+
+        // set dt
+        lastFrameTime = currentFrameTime;
+        deltaTime = (float)(elapsed.count());
+
+
 
         // call update fn in scripts
         updateScripts();
